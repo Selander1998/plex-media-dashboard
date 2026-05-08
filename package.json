@@ -1,0 +1,17 @@
+{
+  "name": "media-dashboard",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node --env-file=.env server.js",
+    "dev:server": "node --env-file=.env --watch server.js",
+    "dev:client": "npm run dev --prefix client",
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "build": "npm run build --prefix client",
+    "preview": "npm run preview --prefix client"
+  },
+  "dependencies": {
+    "concurrently": "^9.1.2",
+    "express": "^4.21.2"
+  }
+}

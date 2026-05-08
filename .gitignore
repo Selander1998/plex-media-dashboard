@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+
+# Environment — copy .env.example and fill in your values
+.env
+
+# Built frontend
+client/dist/
+
+# Generated data files (produced by update.sh)
+scripts/report.json
+scripts/watchlist.json
+scripts/plex_checker_cache.json
+scripts/blacklist.txt
+scripts/plex_blacklist.json
+scripts/update.log
+*.log
+
+# Personal notes
+mullvad.MD
+
+# Claude Code project memory
+.claude/
