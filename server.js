@@ -7,6 +7,8 @@ import { execFile } from "child_process";
 const app = express();
 app.use(express.json());
 
+const DASHBOARD_TOKEN = process.env.DASHBOARD_TOKEN || "";
+
 if (DASHBOARD_TOKEN) {
 	app.use((req, res, next) => {
 		const auth = req.headers.authorization;
@@ -21,7 +23,6 @@ if (DASHBOARD_TOKEN) {
 }
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-const DASHBOARD_TOKEN = process.env.DASHBOARD_TOKEN || "";
 const QBIT_URL = process.env.QBIT_URL || "http://localhost:8080";
 const QBIT_USERNAME = process.env.QBIT_USERNAME || "admin";
 const QBIT_PASSWORD = process.env.QBIT_PASSWORD || "adminadmin";
