@@ -84,7 +84,10 @@ function AppContent() {
 			const prevSeries = new Set(prev.report?.series?.missing?.map(seriesKey) ?? []);
 			setNewItems({
 				watchlist: new Set(
-					(wData.items ?? []).filter((i) => !prevWL.has(i.title)).map((i) => i.title),
+					(wData.items ?? [])
+						.filter((i) => !prevWL.has(i.title))
+						.filter((i) => diskStatus(i, rData) !== "complete")
+						.map((i) => i.title),
 				),
 				movies: new Set(
 					(rData.movies?.missing ?? [])
