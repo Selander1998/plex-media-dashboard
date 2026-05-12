@@ -2,8 +2,9 @@
 
 NOTE: Frontend is basically just written by Claude, wanted to see what it could do. Pure vibe-coding, just overlooked the major changes that was made.
 The Python-scripts included are things i used to manually run previous to them being implemented into this dashboard.
+Also, this is very much intended for my personal setup and usecase.
 
-A self-hosted dashboard for managing a personal media library. Tracks movies and TV shows on disk, surfaces missing content, monitors qBittorrent downloads, and cross-checks Plex indexing — all from a single web UI.
+This is a self-hosted dashboard for managing a personal media library. Tracks movies and TV shows on disk, surfaces missing content, monitors qBittorrent downloads, and cross-checks Plex indexing — all from a single web UI.
 
 ![Stack](https://img.shields.io/badge/Node.js-20+-green) ![Stack](https://img.shields.io/badge/Python-3.10+-blue) ![Stack](https://img.shields.io/badge/React-19-61dafb)
 
@@ -63,6 +64,9 @@ cp .env.example .env
 | `BLACKLIST_PATH`     | Absolute path to `scripts/blacklist.txt`                                 |
 | `PLEX_URL`           | Plex server URL, e.g. `http://192.168.1.10:32400` (optional)             |
 | `PLEX_TOKEN`         | Plex auth token (optional)                                               |
+| `DASHBOARD_TOKEN`    | If set, enables HTTP Basic Auth on the dashboard (optional)              |
+
+> **Exposing the dashboard outside your LAN?** Set `DASHBOARD_TOKEN` to a strong password. The browser will prompt once per session and cache the credentials automatically — no login page required.
 
 ### 3. Configure the scripts
 

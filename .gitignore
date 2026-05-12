@@ -16,8 +16,5 @@ scripts/plex_blacklist.json
 scripts/update.log
 *.log
 
-# Personal notes
-mullvad.MD
-
 # Claude Code project memory
 .claude/

@@ -6,8 +6,22 @@ import { execFile } from "child_process";
 
 const app = express();
 app.use(express.json());
+
+if (DASHBOARD_TOKEN) {
+	app.use((req, res, next) => {
+		const auth = req.headers.authorization;
+		if (auth && auth.startsWith("Basic ")) {
+			const decoded = Buffer.from(auth.slice(6), "base64").toString("utf-8");
+			const password = decoded.slice(decoded.indexOf(":") + 1);
+			if (password === DASHBOARD_TOKEN) return next();
+		}
+		res.set("WWW-Authenticate", 'Basic realm="Media Dashboard"');
+		res.status(401).send("Unauthorized");
+	});
+}
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
+const DASHBOARD_TOKEN = process.env.DASHBOARD_TOKEN || "";
 const QBIT_URL = process.env.QBIT_URL || "http://localhost:8080";
 const QBIT_USERNAME = process.env.QBIT_USERNAME || "admin";
 const QBIT_PASSWORD = process.env.QBIT_PASSWORD || "adminadmin";
@@ -157,6 +171,12 @@ app.get("/api/disk-space", async (req, res) => {
 	const { path } = req.query;
 	if (!path || typeof path !== "string" || !path.startsWith("/")) {
 		return res.status(400).json({ error: "Invalid path" });
+	}
+	if (
+		TORRENT_SAVE_PATHS.length > 0 &&
+		!TORRENT_SAVE_PATHS.some((p) => path === p || path.startsWith(p + "/"))
+	) {
+		return res.status(403).json({ error: "Path not allowed" });
 	}
 	try {
 		const s = await statfs(path);
