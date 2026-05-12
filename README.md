@@ -42,6 +42,7 @@ git clone git@github.com:Selander1998/media-dashboard.git
 cd media-dashboard
 npm install
 npm install --prefix client
+pip install -r scripts/requirements.txt
 ```
 
 ### 2. Configure the server

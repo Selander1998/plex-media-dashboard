@@ -23,6 +23,7 @@ import time
 import argparse
 import requests
 import difflib
+from dotenv import load_dotenv
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 from pathlib import Path
@@ -61,23 +62,10 @@ BLACKLIST_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "plex_
 #     that title regardless of which collection it appears in.
 #   - The "note" field is purely for your reference and is never read by the script.
 
-# ── Load .env file (same directory as this script) ────────────────────────────
-def _load_dotenv():
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    for env_path in [
-        os.path.join(script_dir, ".env"),
-        os.path.join(os.path.dirname(script_dir), ".env"),
-    ]:
-        if not os.path.exists(env_path):
-            continue
-        with open(env_path) as f:
-            for line in f:
-                line = line.strip()
-                if line and not line.startswith("#") and "=" in line:
-                    k, v = line.split("=", 1)
-                    os.environ.setdefault(k.strip(), v.strip())
-
-_load_dotenv()
+# Load scripts/.env first (takes precedence), then root .env as fallback
+_script_dir = Path(__file__).parent
+load_dotenv(_script_dir / ".env")
+load_dotenv(_script_dir.parent / ".env")
 
 # Pass your media roots via --movies-roots and --series-roots (see --help)
 DEFAULT_MOVIES_ROOTS = []
