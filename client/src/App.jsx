@@ -467,7 +467,8 @@ function AppContent() {
 										(report.movies?.multiple_videos?.length ?? 0) +
 										(report.movies?.unneeded_files?.length ?? 0) +
 										(report.series?.multiple_videos?.length ?? 0) +
-										(report.series?.unneeded_files?.length ?? 0);
+										(report.series?.unneeded_files?.length ?? 0) +
+										(report.plex_sync?.not_indexed?.length ?? 0);
 									return count > 0 ? (
 										<span
 											className={`text-[11px] px-1.5 py-px rounded-full min-w-5 text-center ${tab === tabDef.id ? "bg-indigo-500 text-white" : "bg-surface2 text-slate-400"}`}>
