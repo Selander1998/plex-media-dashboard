@@ -43,6 +43,10 @@ function AppContent() {
 	const [watchlist, setWatchlist] = useState(null);
 	const [watchlistError, setWatchlistError] = useState(null);
 	const [torrentCount, setTorrentCount] = useState(null);
+	const [torrents, setTorrents] = useState([]);
+	const [transfer, setTransfer] = useState(null);
+	const [torrentLoading, setTorrentLoading] = useState(true);
+	const [torrentError, setTorrentError] = useState(null);
 	const [refreshing, setRefreshing] = useState(false);
 	const [updateStatus, setUpdateStatus] = useState(null);
 	const [newItems, setNewItems] = useState({
@@ -107,6 +111,34 @@ function AppContent() {
 		setWatchlist(wData);
 		setWatchlistError(null);
 	}, []);
+
+	const fetchTorrents = useCallback(async () => {
+		try {
+			const [tRes, xRes] = await Promise.all([fetch("/api/torrents"), fetch("/api/qbit/transfer")]);
+			const [tData, xData] = await Promise.all([tRes.json(), xRes.json()]);
+			if (!Array.isArray(tData)) throw new Error(tData.detail || tData.error || "Bad response");
+			setTorrents(tData);
+			setTorrentCount(tData.length);
+			const byDrive = {};
+			for (const t of tData) {
+				const drive = t.save_path?.split("/").filter(Boolean)[1] ?? "unknown";
+				byDrive[drive] = (byDrive[drive] ?? 0) + (t.amount_left ?? 0);
+			}
+			setTorrentStatsByDrive(byDrive);
+			setTransfer(xData);
+			setTorrentError(null);
+		} catch (e) {
+			setTorrentError(e.message);
+		} finally {
+			setTorrentLoading(false);
+		}
+	}, []);
+
+	useEffect(() => {
+		fetchTorrents();
+		const id = setInterval(fetchTorrents, 5000);
+		return () => clearInterval(id);
+	}, [fetchTorrents]);
 
 	useEffect(() => {
 		loadData().catch(() => {
@@ -490,8 +522,11 @@ function AppContent() {
 			<main className="flex-1 p-6 max-w-350 w-full mx-auto">
 				{tab === "torrents" && (
 					<Torrents
-						onCount={setTorrentCount}
-						onStats={setTorrentStatsByDrive}
+						torrents={torrents}
+						transfer={transfer}
+						loading={torrentLoading}
+						error={torrentError}
+						onRefresh={fetchTorrents}
 						onToast={pushToast}
 					/>
 				)}

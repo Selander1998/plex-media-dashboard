@@ -1,8 +1,6 @@
-import { useState, useEffect, useCallback, useRef, Fragment } from "react";
+import { useState, useEffect, useRef, Fragment } from "react";
 import StatCard from "./StatCard.jsx";
 import { useLang } from "../LangContext.jsx";
-
-const REFRESH_INTERVAL = 5000;
 
 function formatBytes(bytes) {
 	if (bytes === 0) return "0 B";
@@ -139,14 +137,10 @@ function SpeedSlider({ label, limitBytes, endpoint, colorClass, accentClass, cur
 	);
 }
 
-export default function Torrents({ onCount, onStats, onToast }) {
+export default function Torrents({ torrents, transfer, loading, error, onRefresh, onToast }) {
 	const { t: tr, lang } = useLang();
 	const locale = lang === "sv" ? "sv-SE" : "en-US";
 
-	const [torrents, setTorrents] = useState([]);
-	const [transfer, setTransfer] = useState(null);
-	const [loading, setLoading] = useState(true);
-	const [error, setError] = useState(null);
 	const [filter, setFilter] = useState("all");
 	const [sortKey, setSortKey] = useState("progress");
 	const [sortDir, setSortDir] = useState("desc");
@@ -182,36 +176,6 @@ export default function Torrents({ onCount, onStats, onToast }) {
 		{ value: "error", label: tr("filter_error") },
 	];
 
-	const fetchData = useCallback(async () => {
-		try {
-			const [tRes, xRes] = await Promise.all([fetch("/api/torrents"), fetch("/api/qbit/transfer")]);
-			const [tData, xData] = await Promise.all([tRes.json(), xRes.json()]);
-			if (!Array.isArray(tData)) throw new Error(tData.detail || tData.error || "Bad response");
-			setTorrents(tData);
-			onCount?.(tData.length);
-			if (onStats) {
-				const byDrive = {};
-				for (const t of tData) {
-					const drive = t.save_path?.split("/").filter(Boolean)[1] ?? "unknown";
-					byDrive[drive] = (byDrive[drive] ?? 0) + (t.amount_left ?? 0);
-				}
-				onStats(byDrive);
-			}
-			setTransfer(xData);
-			setError(null);
-		} catch (e) {
-			setError(e.message);
-		} finally {
-			setLoading(false);
-		}
-	}, [onCount]);
-
-	useEffect(() => {
-		fetchData();
-		const id = setInterval(fetchData, REFRESH_INTERVAL);
-		return () => clearInterval(id);
-	}, [fetchData]);
-
 	useEffect(() => {
 		fetch("/api/qbit/auto-pause")
 			.then((r) => r.json())
@@ -243,7 +207,7 @@ export default function Torrents({ onCount, onStats, onToast }) {
 				setTimeout(() => setActionError(null), 3000);
 				return;
 			}
-			setTimeout(fetchData, 800);
+			setTimeout(onRefresh, 800);
 		} catch {
 			setActionError(tr("network_error"));
 			setTimeout(() => setActionError(null), 3000);
@@ -296,7 +260,7 @@ export default function Torrents({ onCount, onStats, onToast }) {
 				body: JSON.stringify({ hash, name }),
 			});
 			onToast?.(name);
-			setTimeout(fetchData, 500);
+			setTimeout(onRefresh, 500);
 		} catch {
 			onToast?.(tr("toast_rename_failed"), true);
 		}
