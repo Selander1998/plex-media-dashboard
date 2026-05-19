@@ -6,6 +6,7 @@ import Torrents from "./components/Torrents.jsx";
 import Watchlist, { diskStatus } from "./components/Watchlist.jsx";
 import Warnings from "./components/Warnings.jsx";
 import { LangProvider, useLang } from "./LangContext.jsx";
+import { translations, availableLangs, flagUrls } from "./translations.js";
 import { exportStatsCard } from "./exportStats.js";
 
 const TABS = [
@@ -277,14 +278,19 @@ function AppContent() {
 					)}
 					<div className="flex items-center gap-3">
 						<div className="flex items-center gap-1.5">
-							{["en", "sv"].map((l) => (
+							{availableLangs.map((l) => (
 								<button
 									key={l}
 									onClick={() => switchLang(l)}
-									className={`text-xs uppercase tracking-wide cursor-pointer transition-colors ${
-										lang === l ? "text-slate-200" : "text-slate-500 hover:text-slate-400"
+									title={l.toUpperCase()}
+									className={`cursor-pointer transition-opacity rounded-sm ${
+										lang === l ? "opacity-100" : "opacity-30 hover:opacity-60"
 									}`}>
-									{l}
+									<img
+										src={flagUrls[translations[l].flag]}
+										alt={l}
+										className="w-5 h-auto rounded-sm"
+									/>
 								</button>
 							))}
 						</div>

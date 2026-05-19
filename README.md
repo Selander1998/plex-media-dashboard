@@ -139,6 +139,20 @@ You can hit the **refresh button** in the dashboard header to trigger this from 
 
 ---
 
+## Adding a language
+
+1. Copy `client/src/locales/en.json` to a new file named after your language code (e.g. `de.json`), translate the values, and set the `"flag"` field to the ISO 3166-1 alpha-2 country code (e.g. `"de"`).
+
+2. Add a matching flag SVG named after the country code (e.g. `de.svg`) to `client/src/locales/`. Flag SVGs in 4:3 format are available at [flagicons.lipis.dev](https://flagicons.lipis.dev).
+
+3. Run `npm run build` and restart the server.
+
+The new language will appear in the header toggle automatically. The language choice is persisted in `localStorage`.
+
+---
+
+r
+
 ## Project structure
 
 ```
