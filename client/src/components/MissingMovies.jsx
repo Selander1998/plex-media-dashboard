@@ -1,20 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import StatCard from "./StatCard.jsx";
-import { normalizeName, findTorrentsForTitle, torrentBadgeProps } from "../torrentUtils.js";
+import { findTorrentsForTitle, torrentBadgeProps } from "../torrentUtils.js";
 import { useLang } from "../LangContext.jsx";
 
-export default function MissingMovies({ data, error, loading, newKeys = new Set(), onToast }) {
+export default function MissingMovies({ data, error, loading, newKeys = new Set(), torrents = [], blockedTitles = new Set(), onBlock, onToast }) {
 	const { t } = useLang();
 	const [search, setSearch] = useState("");
-	const [blacklisted, setBlacklisted] = useState(new Set());
-	const [torrents, setTorrents] = useState([]);
-
-	useEffect(() => {
-		fetch("/api/torrents")
-			.then((r) => r.json())
-			.then((d) => setTorrents(Array.isArray(d) ? d : []))
-			.catch(() => {});
-	}, []);
 
 	if (loading) return <div className="text-center py-12 text-slate-400">{t("loading_report")}</div>;
 	if (error)
@@ -25,13 +16,9 @@ export default function MissingMovies({ data, error, loading, newKeys = new Set(
 		);
 	if (!data) return null;
 
-	function onBlacklist(title) {
-		setBlacklisted((prev) => new Set([...prev, title]));
-	}
-
 	const missing = data.missing.filter(
 		(m) =>
-			!blacklisted.has(m.title) &&
+			!blockedTitles.has(m.title.toLowerCase()) &&
 			(!search ||
 				m.title.toLowerCase().includes(search.toLowerCase()) ||
 				(m.collection || "").toLowerCase().includes(search.toLowerCase())),
@@ -91,7 +78,7 @@ export default function MissingMovies({ data, error, loading, newKeys = new Set(
 								<MovieCard
 									key={m.tmdb_id}
 									movie={m}
-									onBlacklist={onBlacklist}
+									onBlacklist={onBlock}
 									matchedTorrents={findTorrentsForTitle(m.title, torrents)}
 									isNew={newKeys.has(m.tmdb_id ?? m.title)}
 									onToast={onToast}

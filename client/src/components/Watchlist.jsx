@@ -25,11 +25,10 @@ export function diskStatus(item, report) {
 	}
 }
 
-export default function Watchlist({ data, error, loading, report, newTitles = new Set(), onToast }) {
+export default function Watchlist({ data, error, loading, report, newTitles = new Set(), blockedTitles = new Set(), onBlock, onToast }) {
 	const { t } = useLang();
 	const [search, setSearch] = useState("");
 	const [typeFilter, setTypeFilter] = useState("all");
-	const [blocked, setBlocked] = useState(new Set());
 	const [torrents, setTorrents] = useState([]);
 
 	useEffect(() => {
@@ -49,7 +48,7 @@ export default function Watchlist({ data, error, loading, report, newTitles = ne
 	if (!data) return null;
 
 	async function blockItem(title) {
-		setBlocked((prev) => new Set([...prev, title]));
+		onBlock?.(title);
 		onToast?.(t("toast_blacklisted", { title }));
 		try {
 			await fetch("/api/blacklist", {
@@ -62,7 +61,7 @@ export default function Watchlist({ data, error, loading, report, newTitles = ne
 		}
 	}
 
-	const visibleItems = data.items.filter((i) => !blocked.has(i.title) && diskStatus(i, report) !== "complete");
+	const visibleItems = data.items.filter((i) => !blockedTitles.has(i.title.toLowerCase()) && diskStatus(i, report) !== "complete");
 
 	const items = visibleItems.filter((item) => {
 		if (search && !item.title.toLowerCase().includes(search.toLowerCase())) return false;

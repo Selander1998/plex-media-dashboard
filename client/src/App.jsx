@@ -56,6 +56,7 @@ function AppContent() {
 	});
 	const prevDataRef = useRef(null);
 	const [addStatus, setAddStatus] = useState(null);
+	const [blockedTitles, setBlockedTitles] = useState(new Set());
 	const [pasteMode, setPasteMode] = useState(false);
 	const pasteRef = useRef(null);
 	const [savePaths, setSavePaths] = useState([]);
@@ -77,8 +78,9 @@ function AppContent() {
 	const seriesKey = (m) => `${m.show}|${m.type}|${m.season}|${m.episode ?? 0}`;
 
 	const loadData = useCallback(async () => {
-		const [rRes, wRes] = await Promise.all([fetch("/api/report"), fetch("/api/watchlist")]);
-		const [rData, wData] = await Promise.all([rRes.json(), wRes.json()]);
+		const [rRes, wRes, bRes] = await Promise.all([fetch("/api/report"), fetch("/api/watchlist"), fetch("/api/blacklist")]);
+		const [rData, wData, bData] = await Promise.all([rRes.json(), wRes.json(), bRes.json()]);
+		setBlockedTitles(new Set(Array.isArray(bData) ? bData : []));
 
 		if (prevDataRef.current) {
 			const prev = prevDataRef.current;
@@ -463,7 +465,7 @@ function AppContent() {
 									className={`text-[11px] px-1.5 py-px rounded-full min-w-5 text-center ${
 										tab === tabDef.id ? "bg-indigo-500 text-white" : "bg-surface2 text-slate-400"
 									}`}>
-									{report?.movies?.missing?.length ?? 0}
+									{report?.movies?.missing?.filter((m) => !blockedTitles.has(m.title.toLowerCase())).length ?? 0}
 								</span>
 							)}
 							{tabDef.id === "missing_movies" && newItems.movies.size > 0 && (
@@ -476,7 +478,7 @@ function AppContent() {
 									className={`text-[11px] px-1.5 py-px rounded-full min-w-5 text-center ${
 										tab === tabDef.id ? "bg-indigo-500 text-white" : "bg-surface2 text-slate-400"
 									}`}>
-									{watchlist?.items?.filter((i) => diskStatus(i, report) !== "complete").length ??
+									{watchlist?.items?.filter((i) => !blockedTitles.has(i.title.toLowerCase()) && diskStatus(i, report) !== "complete").length ??
 										0}
 								</span>
 							)}
@@ -537,6 +539,8 @@ function AppContent() {
 						loading={!watchlist && !watchlistError}
 						report={report}
 						newTitles={newItems.watchlist}
+						blockedTitles={blockedTitles}
+						onBlock={(title) => setBlockedTitles((prev) => new Set([...prev, title.toLowerCase()]))}
 						onToast={pushToast}
 					/>
 				)}
@@ -546,6 +550,9 @@ function AppContent() {
 						error={reportError}
 						loading={!report && !reportError}
 						newKeys={newItems.movies}
+						torrents={torrents}
+						blockedTitles={blockedTitles}
+						onBlock={(title) => setBlockedTitles((prev) => new Set([...prev, title.toLowerCase()]))}
 						onToast={pushToast}
 					/>
 				)}

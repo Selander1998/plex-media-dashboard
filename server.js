@@ -1,5 +1,5 @@
 import express from "express";
-import { readFile, appendFile, statfs } from "fs/promises";
+import { readFile, writeFile, statfs } from "fs/promises";
 import { fileURLToPath } from "url";
 import { join, dirname } from "path";
 import { execFile } from "child_process";
@@ -28,7 +28,7 @@ const QBIT_USERNAME = process.env.QBIT_USERNAME || "admin";
 const QBIT_PASSWORD = process.env.QBIT_PASSWORD || "adminadmin";
 const REPORT_PATH = process.env.REPORT_PATH || join(__dirname, "scripts", "report.json");
 const WATCHLIST_PATH = process.env.WATCHLIST_PATH || join(__dirname, "scripts", "watchlist.json");
-const BLACKLIST_PATH = process.env.BLACKLIST_PATH || join(__dirname, "scripts", "blacklist.txt");
+const PLEX_BLACKLIST_PATH = join(dirname(REPORT_PATH), "plex_blacklist.json");
 const PORT = process.env.PORT || 3000;
 const TORRENT_SAVE_PATHS = (process.env.TORRENT_SAVE_PATHS || "")
 	.split(",").map((p) => p.trim()).filter(Boolean);
@@ -207,13 +207,38 @@ app.get("/api/watchlist", async (req, res) => {
 	}
 });
 
+async function readPlexBlacklist() {
+	try {
+		const raw = await readFile(PLEX_BLACKLIST_PATH, "utf-8");
+		const bl = JSON.parse(raw);
+		bl.watchlist ??= [];
+		return bl;
+	} catch {
+		return { watchlist: [], shows: [], episodes: [], seasons: [], movies: [] };
+	}
+}
+
+app.get("/api/blacklist", async (req, res) => {
+	try {
+		const bl = await readPlexBlacklist();
+		res.json(bl.watchlist);
+	} catch (err) {
+		res.status(500).json({ error: "Failed to read blacklist", detail: err.message });
+	}
+});
+
 app.post("/api/blacklist", async (req, res) => {
 	const { title } = req.body;
 	if (!title || typeof title !== "string") {
 		return res.status(400).json({ error: "title required" });
 	}
 	try {
-		await appendFile(BLACKLIST_PATH, `${title.toLowerCase()}\n`, "utf-8");
+		const bl = await readPlexBlacklist();
+		const normalized = title.toLowerCase();
+		if (!bl.watchlist.includes(normalized)) {
+			bl.watchlist.push(normalized);
+			await writeFile(PLEX_BLACKLIST_PATH, JSON.stringify(bl, null, 2), "utf-8");
+		}
 		res.json({ ok: true });
 	} catch (err) {
 		res.status(500).json({ error: "Failed to write blacklist", detail: err.message });

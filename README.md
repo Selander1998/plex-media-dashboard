@@ -62,7 +62,6 @@ cp .env.example .env
 | `TORRENT_SAVE_PATHS` | Comma-separated paths qBittorrent saves to — used for disk space display |
 | `REPORT_PATH`        | Absolute path to `scripts/report.json`                                   |
 | `WATCHLIST_PATH`     | Absolute path to `scripts/watchlist.json`                                |
-| `BLACKLIST_PATH`     | Absolute path to `scripts/blacklist.txt`                                 |
 | `PLEX_URL`           | Plex server URL, e.g. `http://192.168.1.10:32400` (optional)             |
 | `PLEX_TOKEN`         | Plex auth token (optional)                                               |
 | `DASHBOARD_TOKEN`    | If set, enables HTTP Basic Auth on the dashboard (optional)              |

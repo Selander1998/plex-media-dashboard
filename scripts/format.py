@@ -4,7 +4,6 @@ import urllib.error
 import re
 import os
 import json
-import argparse
 import datetime
 from typing import List, Dict, Optional, Set
 from dotenv import load_dotenv
@@ -96,26 +95,19 @@ def extract_item_data(item: ET.Element) -> Dict[str, str]:
 
 def load_blacklist(blacklist_path: str) -> Set[str]:
     """
-    Loads the blacklist from a text file.
-    Each non-empty, non-comment line is treated as a title to exclude (case-insensitive).
-
-    Args:
-        blacklist_path: Path to the blacklist file.
-
-    Returns:
-        A set of lowercased title strings to exclude.
+    Loads the watchlist blacklist from plex_blacklist.json's 'watchlist' key.
+    Falls back gracefully if the file is missing or malformed.
     """
     blacklist: Set[str] = set()
     if not os.path.exists(blacklist_path):
         return blacklist
     try:
         with open(blacklist_path, 'r', encoding='utf-8') as f:
-            for line in f:
-                line = line.strip()
-                if line and not line.startswith('#'):
-                    blacklist.add(line.lower())
+            data = json.load(f)
+        entries = data.get("watchlist", [])
+        blacklist = {e.lower() for e in entries if isinstance(e, str)}
         print(f"Loaded {len(blacklist)} blacklist entries from '{blacklist_path}'")
-    except IOError as e:
+    except (IOError, json.JSONDecodeError) as e:
         print(f"Warning: Could not read blacklist file '{blacklist_path}': {e}")
     return blacklist
 
@@ -259,38 +251,26 @@ def process_watchlist(urls: List[str], output_file_path: str = "plex_watchlist.t
 
 def main():
     load_dotenv()
-    
+
     rss_urls_env = os.getenv('RSS_URLS')
-    
     if not rss_urls_env:
         print("Error: RSS_URLS not found in .env file")
-        print("Please create a .env file with: RSS_URLS=url1,url2,url3")
         exit(1)
-    
-    # Split by comma and strip whitespace
+
     rss_urls = [url.strip() for url in rss_urls_env.split(',') if url.strip()]
-    
     if not rss_urls:
         print("Error: No valid URLs found in RSS_URLS environment variable.")
         exit(1)
 
-    parser = argparse.ArgumentParser(description="Plex Watchlist RSS Formatter")
-    parser.add_argument("--remove-unreleased", action="store_true", help="Remove movies that are not yet released (future year)")
-    parser.add_argument("-o", "--output", default="output.txt", help="Path to the output file (default: output.txt)")
-    parser.add_argument("--blacklist", default="blacklist.txt", help="Path to the blacklist file (default: blacklist.txt)")
-    parser.add_argument("--print", action="store_true", dest="print_output", help="Print output instead of writing to file")
-    parser.add_argument("--json", action="store_true", dest="as_json", help="Write JSON output instead of plain text")
-    args = parser.parse_args()
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    output_path = os.path.join(script_dir, "watchlist.json")
+    blacklist_path = os.path.join(script_dir, "plex_blacklist.json")
 
-    blacklist = load_blacklist(args.blacklist)
-
-    result = process_watchlist(rss_urls, args.output, args.remove_unreleased, blacklist, args.print_output, args.as_json)
+    blacklist = load_blacklist(blacklist_path)
+    result = process_watchlist(rss_urls, output_path, remove_unreleased=True, blacklist=blacklist, as_json=True)
 
     if result is None:
         print("Failed to create output file")
-    elif args.print_output:
-        print("\nOutput:\n")
-        print(result)
     else:
         print("Output file created successfully")
 
