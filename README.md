@@ -64,6 +64,7 @@ cp .env.example .env
 | `WATCHLIST_PATH`     | Absolute path to `scripts/watchlist.json`                                |
 | `PLEX_URL`           | Plex server URL, e.g. `http://192.168.1.10:32400` (optional)             |
 | `PLEX_TOKEN`         | Plex auth token (optional)                                               |
+| `PLEX_SCAN_WAIT`     | Seconds to wait after triggering a Plex scan before checking the index (default: `15`) |
 | `DASHBOARD_TOKEN`    | If set, enables HTTP Basic Auth on the dashboard (optional)              |
 
 > **Exposing the dashboard outside your LAN?** Set `DASHBOARD_TOKEN` to a strong password. The browser will prompt once per session and cache the credentials automatically — no login page required.

@@ -800,15 +800,38 @@ def check_plex_sync(plex_url, plex_token, movies_roots, series_roots):
         print("  [SKIP] PLEX_URL / PLEX_TOKEN not configured")
         return {"not_indexed": [], "stale": []}
 
+    plex_scan_wait = int(os.environ.get("PLEX_SCAN_WAIT", "15"))
     headers = {"X-Plex-Token": plex_token, "Accept": "application/json"}
     all_roots = [r.rstrip("/") for r in list(movies_roots) + list(series_roots)]
 
-    # Fetch all file paths currently indexed by Plex
-    plex_files = set()
+    # Fetch library sections
     try:
         r = tmdb_session.get(f"{plex_url}/library/sections", headers=headers, timeout=10)
         r.raise_for_status()
         sections = r.json()["MediaContainer"]["Directory"]
+    except Exception as e:
+        print(f"  [WARN] Could not reach Plex: {e}")
+        return {"not_indexed": [], "stale": []}
+
+    # Trigger a partial scan on every section so newly downloaded files get picked up
+    triggered = 0
+    for section in sections:
+        try:
+            tmdb_session.get(
+                f"{plex_url}/library/sections/{section['key']}/refresh",
+                headers=headers,
+                timeout=10,
+            )
+            triggered += 1
+        except Exception:
+            pass
+    if triggered:
+        print(f"  ↻ Triggered scan on {triggered} section(s) — waiting {plex_scan_wait}s for Plex to index…")
+        time.sleep(plex_scan_wait)
+
+    # Fetch all file paths currently indexed by Plex
+    plex_files = set()
+    try:
         for section in sections:
             skey = section["key"]
             params = {"X-Plex-Token": plex_token}
