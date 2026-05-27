@@ -400,22 +400,22 @@ function AppContent() {
 							<div className="flex gap-2 flex-wrap">
 								{updateStats.movies != null && (
 									<span className="px-2.5 py-1 rounded-md bg-indigo-500/15 border border-indigo-800 text-indigo-300 text-xs font-medium">
-										{updateStats.movies} Movies
+										{updateStats.movies} {t("update_stat_movies")}
 									</span>
 								)}
 								{updateStats.shows != null && (
 									<span className="px-2.5 py-1 rounded-md bg-purple-500/15 border border-purple-800 text-purple-300 text-xs font-medium">
-										{updateStats.shows} Shows
+										{updateStats.shows} {t("update_stat_shows")}
 									</span>
 								)}
 								{updateStats.watchlist != null && (
 									<span className="px-2.5 py-1 rounded-md bg-teal-500/15 border border-teal-800 text-teal-300 text-xs font-medium">
-										{updateStats.watchlist} Watchlist
+										{updateStats.watchlist} {t("update_stat_watchlist")}
 									</span>
 								)}
 								{updateStats.plexFiles != null && (
 									<span className="px-2.5 py-1 rounded-md bg-slate-500/15 border border-slate-700 text-slate-300 text-xs font-medium">
-										{updateStats.plexFiles.toLocaleString()} In Plex
+										{updateStats.plexFiles.toLocaleString()} {t("update_stat_plex")}
 									</span>
 								)}
 							</div>

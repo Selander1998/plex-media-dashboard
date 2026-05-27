@@ -195,5 +195,9 @@
 	"stat_card_missing_movies": "Missing movies",
 	"stat_card_missing_eps": "Missing episodes",
 	"stat_card_missing_seasons": "Missing seasons",
-	"stat_card_affected_shows": "Affected shows"
+	"stat_card_affected_shows": "Affected shows",
+	"update_stat_movies": "Movies",
+	"update_stat_shows": "Shows",
+	"update_stat_watchlist": "Watchlist",
+	"update_stat_plex": "Indexed in Plex"
 }

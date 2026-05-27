@@ -195,5 +195,9 @@
 	"stat_card_missing_movies": "Saknade filmer",
 	"stat_card_missing_eps": "Saknade avsnitt",
 	"stat_card_missing_seasons": "Saknade säsonger",
-	"stat_card_affected_shows": "Påverkade serier"
+	"stat_card_affected_shows": "Påverkade serier",
+	"update_stat_movies": "Filmer",
+	"update_stat_shows": "Serier",
+	"update_stat_watchlist": "Watchlist",
+	"update_stat_plex": "Indexerade i Plex"
 }
