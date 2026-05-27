@@ -27,7 +27,10 @@ function formatAddedDate(ts, tr, lang) {
 	if (diffDays === 0) return tr("today");
 	if (diffDays === 1) return tr("yesterday");
 	if (diffDays < 7) return tr("days_ago", { n: diffDays });
-	return d.toLocaleDateString(lang === "sv" ? "sv-SE" : "en-US", { day: "numeric", month: "short" });
+	return d.toLocaleDateString(lang === "sv" ? "sv-SE" : "en-US", {
+		day: "numeric",
+		month: "short",
+	});
 }
 
 const dotForState = {
@@ -132,7 +135,9 @@ function SpeedSlider({ label, limitBytes, endpoint, colorClass, accentClass, cur
 				className={`flex-1 h-1 cursor-pointer ${accentClass}`}
 				onPointerUp={handleRelease}
 			/>
-			<span className="text-xs text-slate-500 w-24 text-right shrink-0 tabular-nums">{formatKbps(kbps, tr)}</span>
+			<span className="text-xs text-slate-500 w-24 text-right shrink-0 tabular-nums">
+				{formatKbps(kbps, tr)}
+			</span>
 		</div>
 	);
 }
@@ -320,13 +325,22 @@ export default function Torrents({ torrents, transfer, loading, error, onRefresh
 	const downloading = torrents.filter((t) => t.dlspeed > 0);
 	const totalDl = downloading.reduce((s, t) => s + t.dlspeed, 0);
 	const totalUl = torrents.reduce((s, t) => s + t.upspeed, 0);
-	const stalledCount = torrents.filter((t) => t.state === "stalledDL" || t.state === "stalledUP").length;
+	const stalledCount = torrents.filter(
+		(t) => t.state === "stalledDL" || t.state === "stalledUP",
+	).length;
 	const metaCount = torrents.filter((t) => t.state === "metaDL").length;
-	const queuedCount = torrents.filter((t) => t.state === "queuedDL" || t.state === "queuedUP").length;
-	const pausedCount = torrents.filter((t) => ["pausedDL", "pausedUP", "stoppedDL", "stoppedUP"].includes(t.state)).length;
-	const errorCount = torrents.filter((t) => t.state === "error" || t.state === "missingFiles").length;
+	const queuedCount = torrents.filter(
+		(t) => t.state === "queuedDL" || t.state === "queuedUP",
+	).length;
+	const pausedCount = torrents.filter((t) =>
+		["pausedDL", "pausedUP", "stoppedDL", "stoppedUP"].includes(t.state),
+	).length;
+	const errorCount = torrents.filter(
+		(t) => t.state === "error" || t.state === "missingFiles",
+	).length;
 
-	if (loading) return <div className="text-center py-12 text-slate-400">{tr("loading_torrents")}</div>;
+	if (loading)
+		return <div className="text-center py-12 text-slate-400">{tr("loading_torrents")}</div>;
 	if (error)
 		return (
 			<div className="bg-[#2d1a1a] border border-[#5c2626] rounded-lg p-4 text-red-500">
@@ -338,12 +352,26 @@ export default function Torrents({ torrents, transfer, loading, error, onRefresh
 		<div>
 			<div className="flex gap-4 mb-4 flex-wrap">
 				<StatCard label={tr("stat_total")} value={torrents.length} />
-				<StatCard label={tr("stat_downloading")} value={downloading.length} colorClass="text-blue-500" />
-				{metaCount > 0 && <StatCard label={tr("stat_metadata")} value={metaCount} colorClass="text-indigo-400" />}
-				{stalledCount > 0 && <StatCard label={tr("stat_stalled")} value={stalledCount} colorClass="text-yellow-500" />}
-				{queuedCount > 0 && <StatCard label={tr("stat_queued")} value={queuedCount} colorClass="text-slate-400" />}
-				{pausedCount > 0 && <StatCard label={tr("stat_paused")} value={pausedCount} colorClass="text-slate-400" />}
-				{errorCount > 0 && <StatCard label={tr("stat_error")} value={errorCount} colorClass="text-red-500" />}
+				<StatCard
+					label={tr("stat_downloading")}
+					value={downloading.length}
+					colorClass="text-blue-500"
+				/>
+				{metaCount > 0 && (
+					<StatCard label={tr("stat_metadata")} value={metaCount} colorClass="text-indigo-400" />
+				)}
+				{stalledCount > 0 && (
+					<StatCard label={tr("stat_stalled")} value={stalledCount} colorClass="text-yellow-500" />
+				)}
+				{queuedCount > 0 && (
+					<StatCard label={tr("stat_queued")} value={queuedCount} colorClass="text-slate-400" />
+				)}
+				{pausedCount > 0 && (
+					<StatCard label={tr("stat_paused")} value={pausedCount} colorClass="text-slate-400" />
+				)}
+				{errorCount > 0 && (
+					<StatCard label={tr("stat_error")} value={errorCount} colorClass="text-red-500" />
+				)}
 			</div>
 
 			{actionError && (
@@ -440,205 +468,237 @@ export default function Torrents({ torrents, transfer, loading, error, onRefresh
 								const isGroup = groupTorrents.length > 1;
 								const isCollapsed = isGroup && !expandedGroups.has(base);
 
-								const groupHeader = isGroup ? (() => {
-									const totalSize = groupTorrents.reduce((s, t) => s + t.size, 0);
-									const totalDone = groupTorrents.reduce((s, t) => s + t.size * t.progress, 0);
-									const groupPct = totalSize > 0 ? Math.floor((totalDone / totalSize) * 100) : 0;
-									const groupDl = groupTorrents.reduce((s, t) => s + t.dlspeed, 0);
-									const groupUl = groupTorrents.reduce((s, t) => s + t.upspeed, 0);
-									const drive = groupTorrents[0].save_path?.split("/").filter(Boolean)[1] ?? "—";
-									const sameDrive = groupTorrents.every((t) => t.save_path?.split("/").filter(Boolean)[1] === drive);
-									return (
-										<tr
-											key={`group-${base}`}
-											onClick={() => toggleGroup(base)}
-											className="cursor-pointer bg-surface2 hover:bg-surface2/80 border-b border-border">
-											<td className="px-3 py-2 text-slate-200 text-[13px] max-w-80">
-												<div className="flex items-center gap-2">
-													<svg
-														className={`shrink-0 w-3 h-3 text-slate-400 transition-transform ${isCollapsed ? "" : "rotate-90"}`}
-														viewBox="0 0 20 20" fill="currentColor">
-														<path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" />
-													</svg>
-													<span className="font-semibold">{base}</span>
-													<span className="text-[11px] px-1.5 py-0.5 rounded-full bg-slate-700 text-slate-400">{groupTorrents.length}</span>
-												</div>
-											</td>
-											<td className="px-3 py-2 text-slate-400 text-[13px]">{formatBytes(totalSize)}</td>
-											<td className="px-3 py-2 text-[13px] min-w-25">
-												<div className="flex items-center gap-2">
-													<span className="text-xs text-slate-400 w-8.5">{groupPct}%</span>
-													<div className="h-1 rounded-sm bg-surface overflow-hidden flex-1">
-														<div
-															className={`h-full rounded-sm transition-[width] duration-300 ${groupPct === 100 ? "bg-green-500" : "bg-indigo-500"}`}
-															style={{ width: `${groupPct}%` }}
-														/>
-													</div>
-												</div>
-											</td>
-											<td className="px-3 py-2 text-slate-500 text-[13px]" colSpan={3}>
-												{groupDl > 0 && <span className="text-blue-500 mr-3">{formatSpeed(groupDl)}</span>}
-												{groupUl > 0 && <span className="text-green-500">{formatSpeed(groupUl)}</span>}
-											</td>
-											<td className="px-3 py-2 text-slate-500 text-[13px]" />
-											<td className="px-3 py-2 text-slate-500 text-[12px]">{sameDrive ? drive : "—"}</td>
-											<td className="px-3 py-2" />
-										</tr>
-									);
-								})() : null;
-
-								const torrentRows = (!isGroup || !isCollapsed) ? groupTorrents.map((t) => {
-									const dot = dotForState[t.state] ?? "dim";
-									const stateLabel = tr(`state_${t.state}`) !== `state_${t.state}` ? tr(`state_${t.state}`) : t.state;
-									const done = t.progress === 1;
-									const pct = done ? 100 : Math.floor(t.progress * 100);
-									const isExpanded = expandedHash === t.hash;
-									const isConfirming = confirmDelete.has(t.hash);
-
-									return (
-										<Fragment key={t.hash}>
-											<tr
-												className="group cursor-pointer"
-												onClick={() => setExpandedHash(isExpanded ? null : t.hash)}>
-												<td className="px-3 py-2.5 text-slate-200 text-[13px] max-w-80 wrap-break-word group-hover:bg-surface2">
-													{renamingHash === t.hash ? (
-														<input
-															autoFocus
-															value={renameValue}
-															onChange={(e) => setRenameValue(e.target.value)}
-															onKeyDown={(e) => {
-																if (e.key === "Enter") handleRename(t.hash);
-																if (e.key === "Escape") setRenamingHash(null);
-																e.stopPropagation();
-															}}
-															onClick={(e) => e.stopPropagation()}
-															onBlur={() => setRenamingHash(null)}
-															className="bg-surface2 border border-indigo-500 rounded px-2 py-0.5 text-[13px] text-slate-200 outline-none w-full"
-														/>
-													) : (
-														t.name
-													)}
-												</td>
-												<td className="px-3 py-2.5 text-slate-400 text-[13px] group-hover:bg-surface2">
-													{formatBytes(t.size)}
-												</td>
-												<td className="px-3 py-2.5 text-[13px] min-w-25 group-hover:bg-surface2">
-													<div className="flex items-center gap-2">
-														<span className="text-xs text-slate-400 w-8.5">{pct}%</span>
-														<div className="h-1 rounded-sm bg-surface2 overflow-hidden flex-1">
-															<div
-																className={`h-full rounded-sm transition-[width] duration-300 ${done ? "bg-green-500" : "bg-indigo-500"}`}
-																style={{ width: `${pct}%` }}
-															/>
-														</div>
-													</div>
-												</td>
-												<td className="px-3 py-2.5 text-[13px] group-hover:bg-surface2">
-													<span
-														className={`inline-block w-2 h-2 rounded-full mr-1.5 ${dotClass[dot]}`}
-													/>
-													{stateLabel}
-												</td>
-												<td className="px-3 py-2.5 text-blue-500 text-[13px] group-hover:bg-surface2">
-													{t.dlspeed > 0 ? (
-														formatSpeed(t.dlspeed)
-													) : (
-														<span className="text-slate-400">—</span>
-													)}
-												</td>
-												<td className="px-3 py-2.5 text-green-500 text-[13px] group-hover:bg-surface2">
-													{t.upspeed > 0 ? (
-														formatSpeed(t.upspeed)
-													) : (
-														<span className="text-slate-400">—</span>
-													)}
-												</td>
-												<td className="px-3 py-2.5 text-slate-400 text-[13px] group-hover:bg-surface2">
-													{done ? "—" : formatEta(t.eta)}
-												</td>
-												<td className="px-3 py-2.5 text-slate-400 text-[13px] group-hover:bg-surface2 whitespace-nowrap">
-													{t.added_on ? formatAddedDate(t.added_on, tr, lang) : "—"}
-												</td>
-												<td className="px-3 py-2.5 text-slate-500 text-[12px] group-hover:bg-surface2 whitespace-nowrap">
-													{t.save_path ? t.save_path.split("/").filter(Boolean)[1] ?? "—" : "—"}
-												</td>
-												<td className="px-3 py-2.5 group-hover:bg-surface2 text-right">
-													<div className="flex gap-1.5 justify-end">
-														<button
-															onClick={(e) => startRename(e, t.hash, t.name)}
-															title={tr("rename_btn")}
-															className="opacity-0 group-hover:opacity-100 px-2 py-0.5 rounded text-[11px] border border-border text-slate-400 hover:text-slate-200 hover:border-slate-400 cursor-pointer transition-all">
-															✎
-														</button>
-														{PAUSABLE.has(t.state) && (
-															<button
-																onClick={(e) => {
-																	e.stopPropagation();
-																	handleAction("pause", t.hash);
-																}}
-																disabled={pending.has(t.hash)}
-																title={tr("pause_btn")}
-																className="opacity-0 group-hover:opacity-100 px-2 py-0.5 rounded text-[11px] border border-border text-slate-400 hover:text-slate-200 hover:border-slate-400 cursor-pointer transition-all disabled:opacity-30">
-																⏸
-															</button>
-														)}
-														{RESUMABLE.has(t.state) && (
-															<button
-																onClick={(e) => {
-																	e.stopPropagation();
-																	handleAction("resume", t.hash);
-																}}
-																disabled={pending.has(t.hash)}
-																title={tr("resume_btn")}
-																className="opacity-0 group-hover:opacity-100 px-2 py-0.5 rounded text-[11px] border border-border text-slate-400 hover:text-slate-200 hover:border-slate-400 cursor-pointer transition-all disabled:opacity-30">
-																▶
-															</button>
-														)}
-														<button
-															onClick={(e) => handleDeleteClick(e, t.hash)}
-															disabled={pending.has(t.hash)}
-															title={tr("delete_btn")}
-															className={`px-2 py-0.5 rounded text-[11px] border cursor-pointer transition-all disabled:opacity-30 ${
-																isConfirming
-																	? "border-red-500 text-red-400 bg-red-500/10"
-																	: "opacity-0 group-hover:opacity-100 border-border text-slate-400 hover:text-red-400 hover:border-red-500"
-															}`}>
-															{isConfirming ? tr("confirm_delete") : "✕"}
-														</button>
-													</div>
-												</td>
-											</tr>
-											{isExpanded && (
-												<tr>
-													<td colSpan={10} className="bg-surface2 border-b border-border px-4 py-3">
-														<div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-[12px]">
-															<span className="text-slate-500">{tr("saved_in")}</span>
-															<span className="text-slate-300 font-mono break-all">
-																{t.save_path}
-															</span>
-															{t.tracker && (
-																<>
-																	<span className="text-slate-500">{tr("tracker")}</span>
-																	<span className="text-slate-300 break-all">{t.tracker}</span>
-																</>
-															)}
-															<span className="text-slate-500">{tr("ratio")}</span>
-															<span className="text-slate-300">{t.ratio.toFixed(3)}</span>
-															<span className="text-slate-500">{tr("seeds_leeches")}</span>
-															<span className="text-slate-300">
-																{t.num_seeds} / {t.num_leechs}
-															</span>
-															<span className="text-slate-500">{tr("col_added")}</span>
-															<span className="text-slate-300">
-																{new Date(t.added_on * 1000).toLocaleString(locale)}
+								const groupHeader = isGroup
+									? (() => {
+											const totalSize = groupTorrents.reduce((s, t) => s + t.size, 0);
+											const totalDone = groupTorrents.reduce((s, t) => s + t.size * t.progress, 0);
+											const groupPct =
+												totalSize > 0 ? Math.floor((totalDone / totalSize) * 100) : 0;
+											const groupDl = groupTorrents.reduce((s, t) => s + t.dlspeed, 0);
+											const groupUl = groupTorrents.reduce((s, t) => s + t.upspeed, 0);
+											const drive =
+												groupTorrents[0].save_path?.split("/").filter(Boolean)[1] ?? "—";
+											const sameDrive = groupTorrents.every(
+												(t) => t.save_path?.split("/").filter(Boolean)[1] === drive,
+											);
+											return (
+												<tr
+													key={`group-${base}`}
+													onClick={() => toggleGroup(base)}
+													className="cursor-pointer bg-surface2 hover:bg-surface2/80 border-b border-border">
+													<td className="px-3 py-2 text-slate-200 text-[13px] max-w-80">
+														<div className="flex items-center gap-2">
+															<svg
+																className={`shrink-0 w-3 h-3 text-slate-400 transition-transform ${isCollapsed ? "" : "rotate-90"}`}
+																viewBox="0 0 20 20"
+																fill="currentColor">
+																<path
+																	fillRule="evenodd"
+																	d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z"
+																/>
+															</svg>
+															<span className="font-semibold">{base}</span>
+															<span className="text-[11px] px-1.5 py-0.5 rounded-full bg-slate-700 text-slate-400">
+																{groupTorrents.length}
 															</span>
 														</div>
 													</td>
+													<td className="px-3 py-2 text-slate-400 text-[13px]">
+														{formatBytes(totalSize)}
+													</td>
+													<td className="px-3 py-2 text-[13px] min-w-25">
+														<div className="flex items-center gap-2">
+															<span className="text-xs text-slate-400 w-8.5">{groupPct}%</span>
+															<div className="h-1 rounded-sm bg-surface overflow-hidden flex-1">
+																<div
+																	className={`h-full rounded-sm transition-[width] duration-300 ${groupPct === 100 ? "bg-green-500" : "bg-indigo-500"}`}
+																	style={{ width: `${groupPct}%` }}
+																/>
+															</div>
+														</div>
+													</td>
+													<td className="px-3 py-2 text-slate-500 text-[13px]" colSpan={3}>
+														{groupDl > 0 && (
+															<span className="text-blue-500 mr-3">{formatSpeed(groupDl)}</span>
+														)}
+														{groupUl > 0 && (
+															<span className="text-green-500">{formatSpeed(groupUl)}</span>
+														)}
+													</td>
+													<td className="px-3 py-2 text-slate-500 text-[13px]" />
+													<td className="px-3 py-2 text-slate-500 text-[12px]">
+														{sameDrive ? drive : "—"}
+													</td>
+													<td className="px-3 py-2" />
 												</tr>
-											)}
-										</Fragment>
-									);
-								}) : [];
+											);
+										})()
+									: null;
+
+								const torrentRows =
+									!isGroup || !isCollapsed
+										? groupTorrents.map((t) => {
+												const dot = dotForState[t.state] ?? "dim";
+												const stateLabel =
+													tr(`state_${t.state}`) !== `state_${t.state}`
+														? tr(`state_${t.state}`)
+														: t.state;
+												const done = t.progress === 1;
+												const pct = done ? 100 : Math.floor(t.progress * 100);
+												const isExpanded = expandedHash === t.hash;
+												const isConfirming = confirmDelete.has(t.hash);
+
+												return (
+													<Fragment key={t.hash}>
+														<tr
+															className="group cursor-pointer"
+															onClick={() => setExpandedHash(isExpanded ? null : t.hash)}>
+															<td className="px-3 py-2.5 text-slate-200 text-[13px] max-w-80 wrap-break-word group-hover:bg-surface2">
+																{renamingHash === t.hash ? (
+																	<input
+																		autoFocus
+																		value={renameValue}
+																		onChange={(e) => setRenameValue(e.target.value)}
+																		onKeyDown={(e) => {
+																			if (e.key === "Enter") handleRename(t.hash);
+																			if (e.key === "Escape") setRenamingHash(null);
+																			e.stopPropagation();
+																		}}
+																		onClick={(e) => e.stopPropagation()}
+																		onBlur={() => setRenamingHash(null)}
+																		className="bg-surface2 border border-indigo-500 rounded px-2 py-0.5 text-[13px] text-slate-200 outline-none w-full"
+																	/>
+																) : (
+																	t.name
+																)}
+															</td>
+															<td className="px-3 py-2.5 text-slate-400 text-[13px] group-hover:bg-surface2">
+																{formatBytes(t.size)}
+															</td>
+															<td className="px-3 py-2.5 text-[13px] min-w-25 group-hover:bg-surface2">
+																<div className="flex items-center gap-2">
+																	<span className="text-xs text-slate-400 w-8.5">{pct}%</span>
+																	<div className="h-1 rounded-sm bg-surface2 overflow-hidden flex-1">
+																		<div
+																			className={`h-full rounded-sm transition-[width] duration-300 ${done ? "bg-green-500" : "bg-indigo-500"}`}
+																			style={{ width: `${pct}%` }}
+																		/>
+																	</div>
+																</div>
+															</td>
+															<td className="px-3 py-2.5 text-[13px] group-hover:bg-surface2">
+																<span
+																	className={`inline-block w-2 h-2 rounded-full mr-1.5 ${dotClass[dot]}`}
+																/>
+																{stateLabel}
+															</td>
+															<td className="px-3 py-2.5 text-blue-500 text-[13px] group-hover:bg-surface2">
+																{t.dlspeed > 0 ? (
+																	formatSpeed(t.dlspeed)
+																) : (
+																	<span className="text-slate-400">—</span>
+																)}
+															</td>
+															<td className="px-3 py-2.5 text-green-500 text-[13px] group-hover:bg-surface2">
+																{t.upspeed > 0 ? (
+																	formatSpeed(t.upspeed)
+																) : (
+																	<span className="text-slate-400">—</span>
+																)}
+															</td>
+															<td className="px-3 py-2.5 text-slate-400 text-[13px] group-hover:bg-surface2">
+																{done ? "—" : formatEta(t.eta)}
+															</td>
+															<td className="px-3 py-2.5 text-slate-400 text-[13px] group-hover:bg-surface2 whitespace-nowrap">
+																{t.added_on ? formatAddedDate(t.added_on, tr, lang) : "—"}
+															</td>
+															<td className="px-3 py-2.5 text-slate-500 text-[12px] group-hover:bg-surface2 whitespace-nowrap">
+																{t.save_path
+																	? (t.save_path.split("/").filter(Boolean)[1] ?? "—")
+																	: "—"}
+															</td>
+															<td className="px-3 py-2.5 group-hover:bg-surface2 text-right">
+																<div className="flex gap-1.5 justify-end">
+																	<button
+																		onClick={(e) => startRename(e, t.hash, t.name)}
+																		title={tr("rename_btn")}
+																		className="opacity-0 group-hover:opacity-100 px-2 py-0.5 rounded text-[11px] border border-border text-slate-400 hover:text-slate-200 hover:border-slate-400 cursor-pointer transition-all">
+																		✎
+																	</button>
+																	{PAUSABLE.has(t.state) && (
+																		<button
+																			onClick={(e) => {
+																				e.stopPropagation();
+																				handleAction("pause", t.hash);
+																			}}
+																			disabled={pending.has(t.hash)}
+																			title={tr("pause_btn")}
+																			className="opacity-0 group-hover:opacity-100 px-2 py-0.5 rounded text-[11px] border border-border text-slate-400 hover:text-slate-200 hover:border-slate-400 cursor-pointer transition-all disabled:opacity-30">
+																			⏸
+																		</button>
+																	)}
+																	{RESUMABLE.has(t.state) && (
+																		<button
+																			onClick={(e) => {
+																				e.stopPropagation();
+																				handleAction("resume", t.hash);
+																			}}
+																			disabled={pending.has(t.hash)}
+																			title={tr("resume_btn")}
+																			className="opacity-0 group-hover:opacity-100 px-2 py-0.5 rounded text-[11px] border border-border text-slate-400 hover:text-slate-200 hover:border-slate-400 cursor-pointer transition-all disabled:opacity-30">
+																			▶
+																		</button>
+																	)}
+																	<button
+																		onClick={(e) => handleDeleteClick(e, t.hash)}
+																		disabled={pending.has(t.hash)}
+																		title={tr("delete_btn")}
+																		className={`px-2 py-0.5 rounded text-[11px] border cursor-pointer transition-all disabled:opacity-30 ${
+																			isConfirming
+																				? "border-red-500 text-red-400 bg-red-500/10"
+																				: "opacity-0 group-hover:opacity-100 border-border text-slate-400 hover:text-red-400 hover:border-red-500"
+																		}`}>
+																		{isConfirming ? tr("confirm_delete") : "✕"}
+																	</button>
+																</div>
+															</td>
+														</tr>
+														{isExpanded && (
+															<tr>
+																<td
+																	colSpan={10}
+																	className="bg-surface2 border-b border-border px-4 py-3">
+																	<div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-[12px]">
+																		<span className="text-slate-500">{tr("saved_in")}</span>
+																		<span className="text-slate-300 font-mono break-all">
+																			{t.save_path}
+																		</span>
+																		{t.tracker && (
+																			<>
+																				<span className="text-slate-500">{tr("tracker")}</span>
+																				<span className="text-slate-300 break-all">
+																					{t.tracker}
+																				</span>
+																			</>
+																		)}
+																		<span className="text-slate-500">{tr("ratio")}</span>
+																		<span className="text-slate-300">{t.ratio.toFixed(3)}</span>
+																		<span className="text-slate-500">{tr("seeds_leeches")}</span>
+																		<span className="text-slate-300">
+																			{t.num_seeds} / {t.num_leechs}
+																		</span>
+																		<span className="text-slate-500">{tr("col_added")}</span>
+																		<span className="text-slate-300">
+																			{new Date(t.added_on * 1000).toLocaleString(locale)}
+																		</span>
+																	</div>
+																</td>
+															</tr>
+														)}
+													</Fragment>
+												);
+											})
+										: [];
 
 								return (
 									<Fragment key={base}>

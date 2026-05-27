@@ -3,7 +3,16 @@ import StatCard from "./StatCard.jsx";
 import { findTorrentsForTitle, torrentBadgeProps } from "../torrentUtils.js";
 import { useLang } from "../LangContext.jsx";
 
-export default function MissingMovies({ data, error, loading, newKeys = new Set(), torrents = [], blockedTitles = new Set(), onBlock, onToast }) {
+export default function MissingMovies({
+	data,
+	error,
+	loading,
+	newKeys = new Set(),
+	torrents = [],
+	blockedTitles = new Set(),
+	onBlock,
+	onToast,
+}) {
 	const { t } = useLang();
 	const [search, setSearch] = useState("");
 
@@ -37,8 +46,18 @@ export default function MissingMovies({ data, error, loading, newKeys = new Set(
 	return (
 		<div>
 			<div className="flex gap-4 mb-5 flex-wrap">
-				{data.total != null && <StatCard label={t("stat_movies_on_disk")} value={data.total} colorClass="text-slate-200" />}
-				<StatCard label={t("stat_missing_movies")} value={visibleMissing.length} colorClass="text-red-500" />
+				{data.total != null && (
+					<StatCard
+						label={t("stat_movies_on_disk")}
+						value={data.total}
+						colorClass="text-slate-200"
+					/>
+				)}
+				<StatCard
+					label={t("stat_missing_movies")}
+					value={visibleMissing.length}
+					colorClass="text-red-500"
+				/>
 				<StatCard label={t("stat_affected_collections")} value={collections.length} />
 				{data.multiple_videos?.length > 0 && (
 					<StatCard
@@ -96,15 +115,17 @@ export default function MissingMovies({ data, error, loading, newKeys = new Set(
 						{t("multiple_videos_title")}
 					</div>
 					<div className="bg-surface border border-border rounded-lg overflow-hidden divide-y divide-border">
-					{data.multiple_videos.map((m) => (
-						<div key={m.folder} className="px-4 py-3 flex flex-col gap-1">
-							<span className="text-slate-200 text-[13px] font-medium">{m.folder}</span>
-							<ul className="text-slate-400 text-[12px] list-disc list-inside">
-								{m.videos.map((v) => <li key={v}>{v}</li>)}
-							</ul>
-						</div>
-					))}
-				</div>
+						{data.multiple_videos.map((m) => (
+							<div key={m.folder} className="px-4 py-3 flex flex-col gap-1">
+								<span className="text-slate-200 text-[13px] font-medium">{m.folder}</span>
+								<ul className="text-slate-400 text-[12px] list-disc list-inside">
+									{m.videos.map((v) => (
+										<li key={v}>{v}</li>
+									))}
+								</ul>
+							</div>
+						))}
+					</div>
 				</>
 			)}
 		</div>
@@ -135,7 +156,9 @@ function MovieCard({ movie, onBlacklist, matchedTorrents = [], isNew = false, on
 	return (
 		<div className="bg-surface border border-border rounded-lg px-4 py-3.5 flex flex-col gap-1.5 group">
 			<div className="flex items-start gap-2">
-				<span className="text-sm font-semibold text-slate-200 flex-1 leading-snug">{movie.title}</span>
+				<span className="text-sm font-semibold text-slate-200 flex-1 leading-snug">
+					{movie.title}
+				</span>
 				{isNew && (
 					<span className="shrink-0 px-1.5 py-0.5 rounded border text-[10px] font-medium text-teal-400 border-teal-800 bg-teal-950/40">
 						{t("badge_new")}
@@ -144,7 +167,9 @@ function MovieCard({ movie, onBlacklist, matchedTorrents = [], isNew = false, on
 				{matchedTorrents.map((tor) => {
 					const { label, cls } = torrentBadgeProps(tor, t);
 					return (
-						<span key={tor.hash} className={`shrink-0 px-1.5 py-0.5 rounded border text-[10px] font-medium ${cls}`}>
+						<span
+							key={tor.hash}
+							className={`shrink-0 px-1.5 py-0.5 rounded border text-[10px] font-medium ${cls}`}>
 							{label}
 						</span>
 					);

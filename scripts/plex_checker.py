@@ -426,6 +426,7 @@ def check_movies(movies_roots, api_key, cache, blacklist):
 
     multiple_videos = []
     unneeded_files = []
+    not_found_on_tmdb = []
     total_size = 0
 
     total = len(all_folders)
@@ -446,7 +447,7 @@ def check_movies(movies_roots, api_key, cache, blacklist):
                         pass
                 elif f.suffix.lower() not in ALLOWED_EXTS:
                     extras.append(f.name)
-        
+
         if len(videos) > 1:
             multiple_videos.append({"folder": folder.name, "videos": videos})
             print(f"    [WARN] Multiple video files found: {videos}")
@@ -457,6 +458,7 @@ def check_movies(movies_roots, api_key, cache, blacklist):
             local_tmdb_ids.add(movie["id"])
             folder_to_tmdb_id[folder.name] = movie["id"]
         else:
+            not_found_on_tmdb.append({"folder": folder.name, "title": title, "year": year})
             print(f"    [WARN] Not found on TMDB (searched: '{title}' {year})")
 
     print(f"\n  Pass 2/2: Checking collections for gaps...\n")
@@ -517,6 +519,7 @@ def check_movies(movies_roots, api_key, cache, blacklist):
         "missing": missing,
         "multiple_videos": multiple_videos,
         "unneeded_files": unneeded_files,
+        "not_found_on_tmdb": not_found_on_tmdb,
     }
 
 
@@ -545,6 +548,7 @@ def check_series(series_roots, api_key, cache, blacklist, series_filter=None):
     missing = []
     multiple_videos = []
     unneeded_files = []
+    not_found_on_tmdb = []
     total_seasons_on_disk = 0
     total_episodes_on_disk = 0
     total_size = 0
@@ -561,6 +565,7 @@ def check_series(series_roots, api_key, cache, blacklist, series_filter=None):
 
         tv = search_tv(title, year, api_key, cache)
         if not tv:
+            not_found_on_tmdb.append({"folder": show_folder.name, "title": title, "year": year})
             print(f"    [WARN] Not found on TMDB — skipping")
             continue
 
@@ -778,6 +783,7 @@ def check_series(series_roots, api_key, cache, blacklist, series_filter=None):
         "missing": missing,
         "multiple_videos": multiple_videos,
         "unneeded_files": unneeded_files,
+        "not_found_on_tmdb": not_found_on_tmdb,
     }
 
 

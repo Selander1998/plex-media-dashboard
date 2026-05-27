@@ -21,13 +21,15 @@ def fetch_feed_data(url: str) -> Optional[str]:
         The XML content as a string, or None if fetching failed.
     """
     try:
-        print(f"Fetching data from: {url}")
+        from urllib.parse import urlparse
+        host = urlparse(url).netloc or url
+        print(f"  Fetching feed: {host}")
         with urllib.request.urlopen(url) as response:
             return response.read()
     except urllib.error.URLError as e:
-        print(f"Error fetching URL {url}: {e}")
+        print(f"  [WARN] Could not fetch feed: {e}")
     except Exception as e:
-        print(f"Unexpected error fetching {url}: {e}")
+        print(f"  [WARN] Unexpected fetch error: {e}")
     return None
 
 def parse_rss_items(xml_content: str) -> List[ET.Element]:
@@ -106,7 +108,7 @@ def load_blacklist(blacklist_path: str) -> Set[str]:
             data = json.load(f)
         entries = data.get("watchlist", [])
         blacklist = {e.lower() for e in entries if isinstance(e, str)}
-        print(f"Loaded {len(blacklist)} blacklist entries from '{blacklist_path}'")
+        print(f"  Loaded {len(blacklist)} blacklist entries")
     except (IOError, json.JSONDecodeError) as e:
         print(f"Warning: Could not read blacklist file '{blacklist_path}': {e}")
     return blacklist
@@ -188,7 +190,7 @@ def process_watchlist(urls: List[str], output_file_path: str = "plex_watchlist.t
             continue
             
         items = parse_rss_items(xml_content)
-        print(f"Parsed {len(items)} items from {url}")
+        print(f"  Parsed {len(items)} item(s)")
         
         for item in items:
             data = extract_item_data(item)
@@ -199,7 +201,7 @@ def process_watchlist(urls: List[str], output_file_path: str = "plex_watchlist.t
 
             # Skip blacklisted titles
             if blacklist and data['title'].lower() in blacklist:
-                print(f"Skipping blacklisted item: {data['title']}")
+                print(f"  ~ Skipping blacklisted: {data['title']}")
                 continue
 
             if remove_unreleased:
@@ -231,7 +233,7 @@ def process_watchlist(urls: List[str], output_file_path: str = "plex_watchlist.t
         # The original code returned False.
         return False
 
-    print(f"\nSuccessfully parsed {len(all_items_data)} total unique items from watchlist")
+    print(f"\n  ✓ {len(all_items_data)} unique watchlist items")
 
     if as_json:
         output = json.dumps({"generated": datetime.datetime.now().isoformat(), "items": all_items_data}, indent=2)

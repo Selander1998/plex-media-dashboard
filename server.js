@@ -2,7 +2,7 @@ import express from "express";
 import { readFile, writeFile, statfs, stat } from "fs/promises";
 import { fileURLToPath } from "url";
 import { join, dirname } from "path";
-import { execFile } from "child_process";
+import { spawn } from "child_process";
 
 const app = express();
 app.use(express.json());
@@ -253,14 +253,51 @@ app.post("/api/update", (req, res) => {
 		return res.status(409).json({ error: "Update already running" });
 	}
 	updateRunning = true;
-	execFile(UPDATE_SCRIPT, { timeout: 300_000 }, (err) => {
-		updateRunning = false;
-		if (err) {
-			console.error("[update] failed:", err.message);
-			return res.status(500).json({ error: "Update failed", detail: err.message });
+
+	res.setHeader("Content-Type", "text/event-stream");
+	res.setHeader("Cache-Control", "no-cache");
+	res.setHeader("Connection", "keep-alive");
+	res.flushHeaders();
+	res.socket?.setNoDelay(true);
+
+	const send = (payload) => res.write(`data: ${JSON.stringify(payload)}\n\n`);
+
+	const child = spawn("bash", [UPDATE_SCRIPT], {
+		timeout: 300_000,
+		env: { ...process.env, PYTHONUNBUFFERED: "1" },
+	});
+	let tail = "";
+
+	const flush = (chunk) => {
+		tail += chunk.toString();
+		const lines = tail.split("\n");
+		tail = lines.pop();
+		for (const line of lines) {
+			const trimmed = line.trim();
+			if (trimmed) send({ line: trimmed });
 		}
-		refreshPlexLibraries();
-		res.json({ ok: true });
+	};
+
+	child.stdout.on("data", flush);
+	child.stderr.on("data", flush);
+
+	child.on("close", async (code) => {
+		updateRunning = false;
+		if (tail.trim()) send({ line: tail.trim() });
+		if (code === 0) {
+			await refreshPlexLibraries();
+			send({ done: true });
+		} else {
+			send({ error: true });
+		}
+		res.end();
+	});
+
+	child.on("error", (err) => {
+		updateRunning = false;
+		console.error("[update] spawn error:", err.message);
+		send({ error: true });
+		res.end();
 	});
 });
 

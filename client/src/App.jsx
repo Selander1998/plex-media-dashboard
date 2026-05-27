@@ -33,6 +33,40 @@ export default function App() {
 	);
 }
 
+function shouldShowUpdateLine(line) {
+	const t = line.trim();
+	if (/^═+$/.test(t)) return false; // pure decorator ════
+	if (/^\s*\[\d+\/\d+\]/.test(t)) return false; // [12/142] progress counters
+	if (/^\s*✓ .+\(\d{4}\)(\s+\[.*\])?$/.test(t)) return false; // ✓ Movie Title (2020) collection parts
+	if (/^\s*✓ Season \d+: complete/.test(t)) return false; // ✓ Season 03: complete
+	return true;
+}
+
+function extractUpdateStat(line, prev) {
+	let m;
+	if ((m = line.match(/(\d[\d,]*) movies? found/i)))
+		return { ...prev, movies: parseInt(m[1].replace(/,/g, "")) };
+	if ((m = line.match(/(\d[\d,]*) shows? found/i)))
+		return { ...prev, shows: parseInt(m[1].replace(/,/g, "")) };
+	if ((m = line.match(/✓\s+(\d[\d,]*) unique watchlist/i)))
+		return { ...prev, watchlist: parseInt(m[1].replace(/,/g, "")) };
+	if ((m = line.match(/Plex has (\d[\d,]*) files? indexed/i)))
+		return { ...prev, plexFiles: parseInt(m[1].replace(/,/g, "")) };
+	return prev;
+}
+
+function updateLogLineClass(line) {
+	if (/[✗✕]/.test(line) || /\bMISSING\b/.test(line) || /^ERROR/.test(line.trim()))
+		return "text-red-400";
+	if (/\[WARN\]/.test(line)) return "text-amber-400";
+	if (/[↻]/.test(line)) return "text-indigo-400";
+	if (/[✓~]/.test(line)) return "text-emerald-400";
+	if (/[A-Z]{3,}.*—/.test(line) || /^Plex Media Checker/.test(line.trim()))
+		return "text-slate-100 font-medium";
+	if (/^\[\d{2}:\d{2}:\d{2}\]/.test(line.trim())) return "text-slate-300";
+	return "text-slate-400";
+}
+
 function AppContent() {
 	const { lang, switchLang, t } = useLang();
 	const locale = lang === "sv" ? "sv-SE" : "en-US";
@@ -56,6 +90,9 @@ function AppContent() {
 	});
 	const prevDataRef = useRef(null);
 	const [addStatus, setAddStatus] = useState(null);
+	const [updateLog, setUpdateLog] = useState([]);
+	const [updateStats, setUpdateStats] = useState({});
+	const logRef = useRef(null);
 	const [blockedTitles, setBlockedTitles] = useState(new Set());
 	const [pasteMode, setPasteMode] = useState(false);
 	const pasteRef = useRef(null);
@@ -78,7 +115,11 @@ function AppContent() {
 	const seriesKey = (m) => `${m.show}|${m.type}|${m.season}|${m.episode ?? 0}`;
 
 	const loadData = useCallback(async () => {
-		const [rRes, wRes, bRes] = await Promise.all([fetch("/api/report"), fetch("/api/watchlist"), fetch("/api/blacklist")]);
+		const [rRes, wRes, bRes] = await Promise.all([
+			fetch("/api/report"),
+			fetch("/api/watchlist"),
+			fetch("/api/blacklist"),
+		]);
 		const [rData, wData, bData] = await Promise.all([rRes.json(), wRes.json(), bRes.json()]);
 		setBlockedTitles(new Set(Array.isArray(bData) ? bData : []));
 
@@ -198,6 +239,10 @@ function AppContent() {
 		});
 	}, [savePaths]);
 
+	useEffect(() => {
+		if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
+	}, [updateLog]);
+
 	async function submitMagnet(url) {
 		if (!url.startsWith("magnet:?")) {
 			setAddStatus("invalid");
@@ -243,39 +288,170 @@ function AppContent() {
 		flushSync(() => {
 			setRefreshing(true);
 			setUpdateStatus(null);
+			setUpdateLog([]);
+			setUpdateStats({});
 		});
 		try {
 			const res = await fetch("/api/update", { method: "POST" });
 			if (!res.ok) throw new Error();
+
+			const reader = res.body.getReader();
+			const decoder = new TextDecoder();
+			let buffer = "";
+			let success = false;
+
+			outer: while (true) {
+				const { done, value } = await reader.read();
+				if (done) break;
+				buffer += decoder.decode(value, { stream: true });
+				const parts = buffer.split("\n\n");
+				buffer = parts.pop();
+				const newLines = [];
+				for (const part of parts) {
+					const dataLine = part.split("\n").find((l) => l.startsWith("data: "));
+					if (!dataLine) continue;
+					const payload = JSON.parse(dataLine.slice(6));
+					if (payload.done) {
+						success = true;
+						break;
+					}
+					if (payload.error) throw new Error();
+					if (payload.line) {
+						setUpdateStats((prev) => extractUpdateStat(payload.line, prev));
+						if (shouldShowUpdateLine(payload.line)) newLines.push(payload.line);
+					}
+				}
+				if (newLines.length) {
+					flushSync(() => setUpdateLog((prev) => [...prev, ...newLines]));
+				}
+				if (success) break outer;
+			}
+
+			if (!success) throw new Error();
 			await loadData();
 			setUpdateStatus("ok");
-			pushToast(t("toast_update_done"));
-			setTimeout(() => setUpdateStatus(null), 3000);
 		} catch {
 			setUpdateStatus("error");
 			pushToast(t("toast_update_failed"), true);
-			setTimeout(() => setUpdateStatus(null), 3000);
-		} finally {
-			setRefreshing(false);
 		}
+		// Modal stays open — user must click Close
+	}
+
+	function handleCloseUpdate() {
+		setRefreshing(false);
+		setUpdateStatus(null);
+		setUpdateLog([]);
+		setUpdateStats({});
 	}
 
 	return (
 		<div className="min-h-screen flex flex-col">
 			{refreshing && (
-				<div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center">
-					<div className="bg-surface border border-border rounded-xl px-10 py-8 flex flex-col items-center gap-4 shadow-xl">
-						<svg
-							className="w-8 h-8 animate-spin text-indigo-400"
-							viewBox="0 0 20 20"
-							fill="currentColor">
-							<path
-								fillRule="evenodd"
-								d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z"
-								clipRule="evenodd"
-							/>
-						</svg>
-						<span className="text-slate-200 text-sm font-medium">{t("updating")}</span>
+				<div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+					<div className="bg-surface border border-border rounded-xl p-6 flex flex-col gap-4 shadow-xl w-175 max-w-full">
+						{/* Title row */}
+						<div className="flex items-center gap-2.5">
+							{updateStatus === "ok" ? (
+								<svg
+									className="w-5 h-5 text-emerald-400 shrink-0"
+									viewBox="0 0 20 20"
+									fill="currentColor">
+									<path
+										fillRule="evenodd"
+										d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+										clipRule="evenodd"
+									/>
+								</svg>
+							) : updateStatus === "error" ? (
+								<svg
+									className="w-5 h-5 text-red-400 shrink-0"
+									viewBox="0 0 20 20"
+									fill="currentColor">
+									<path
+										fillRule="evenodd"
+										d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+										clipRule="evenodd"
+									/>
+								</svg>
+							) : (
+								<svg
+									className="w-5 h-5 animate-spin text-indigo-400 shrink-0"
+									viewBox="0 0 20 20"
+									fill="currentColor">
+									<path
+										fillRule="evenodd"
+										d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z"
+										clipRule="evenodd"
+									/>
+								</svg>
+							)}
+							<span
+								className={`text-sm font-medium ${updateStatus === "ok" ? "text-emerald-400" : updateStatus === "error" ? "text-red-400" : "text-slate-200"}`}>
+								{updateStatus === "ok"
+									? t("update_done")
+									: updateStatus === "error"
+										? t("update_failed")
+										: t("updating")}
+							</span>
+						</div>
+
+						{/* Stats pills */}
+						{Object.keys(updateStats).length > 0 && (
+							<div className="flex gap-2 flex-wrap">
+								{updateStats.movies != null && (
+									<span className="px-2.5 py-1 rounded-md bg-indigo-500/15 border border-indigo-800 text-indigo-300 text-xs font-medium">
+										{updateStats.movies} Movies
+									</span>
+								)}
+								{updateStats.shows != null && (
+									<span className="px-2.5 py-1 rounded-md bg-purple-500/15 border border-purple-800 text-purple-300 text-xs font-medium">
+										{updateStats.shows} Shows
+									</span>
+								)}
+								{updateStats.watchlist != null && (
+									<span className="px-2.5 py-1 rounded-md bg-teal-500/15 border border-teal-800 text-teal-300 text-xs font-medium">
+										{updateStats.watchlist} Watchlist
+									</span>
+								)}
+								{updateStats.plexFiles != null && (
+									<span className="px-2.5 py-1 rounded-md bg-slate-500/15 border border-slate-700 text-slate-300 text-xs font-medium">
+										{updateStats.plexFiles.toLocaleString()} In Plex
+									</span>
+								)}
+							</div>
+						)}
+
+						{/* Log */}
+						<div
+							ref={logRef}
+							className="w-full bg-black/40 border border-border rounded-lg px-3 py-2.5 text-[11px] font-mono h-80 overflow-y-auto">
+							{updateLog.length === 0 ? (
+								<span className="text-slate-600">Waiting for output…</span>
+							) : (
+								updateLog.map((line, i) => (
+									<div
+										key={i}
+										className={`leading-relaxed whitespace-pre-wrap break-all ${updateLogLineClass(line)}`}>
+										{line}
+									</div>
+								))
+							)}
+						</div>
+
+						{/* Close button — only when finished */}
+						{updateStatus !== null && (
+							<div className="flex justify-end">
+								<button
+									onClick={handleCloseUpdate}
+									className={`px-4 py-1.5 rounded-md border text-sm font-medium cursor-pointer transition-colors ${
+										updateStatus === "ok"
+											? "bg-emerald-500/15 border-emerald-700 text-emerald-300 hover:bg-emerald-500/25"
+											: "bg-red-500/15 border-red-800 text-red-400 hover:bg-red-500/25"
+									}`}>
+									{t("close_btn")}
+								</button>
+							</div>
+						)}
 					</div>
 				</div>
 			)}
@@ -435,7 +611,11 @@ function AppContent() {
 								title={t("export_stats_title")}
 								className="cursor-pointer text-slate-500 hover:text-slate-300 transition-colors">
 								<svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
-									<path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+									<path
+										fillRule="evenodd"
+										d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z"
+										clipRule="evenodd"
+									/>
 								</svg>
 							</button>
 						)}
@@ -484,7 +664,8 @@ function AppContent() {
 									className={`text-[11px] px-1.5 py-px rounded-full min-w-5 text-center ${
 										tab === tabDef.id ? "bg-indigo-500 text-white" : "bg-surface2 text-slate-400"
 									}`}>
-									{report?.movies?.missing?.filter((m) => !blockedTitles.has(m.title.toLowerCase())).length ?? 0}
+									{report?.movies?.missing?.filter((m) => !blockedTitles.has(m.title.toLowerCase()))
+										.length ?? 0}
 								</span>
 							)}
 							{tabDef.id === "missing_movies" && newItems.movies.size > 0 && (
@@ -497,8 +678,11 @@ function AppContent() {
 									className={`text-[11px] px-1.5 py-px rounded-full min-w-5 text-center ${
 										tab === tabDef.id ? "bg-indigo-500 text-white" : "bg-surface2 text-slate-400"
 									}`}>
-									{watchlist?.items?.filter((i) => !blockedTitles.has(i.title.toLowerCase()) && diskStatus(i, report) !== "complete").length ??
-										0}
+									{watchlist?.items?.filter(
+										(i) =>
+											!blockedTitles.has(i.title.toLowerCase()) &&
+											diskStatus(i, report) !== "complete",
+									).length ?? 0}
 								</span>
 							)}
 							{tabDef.id === "watchlist" && newItems.watchlist.size > 0 && (
@@ -525,8 +709,10 @@ function AppContent() {
 									const count =
 										(report.movies?.multiple_videos?.length ?? 0) +
 										(report.movies?.unneeded_files?.length ?? 0) +
+										(report.movies?.not_found_on_tmdb?.length ?? 0) +
 										(report.series?.multiple_videos?.length ?? 0) +
 										(report.series?.unneeded_files?.length ?? 0) +
+										(report.series?.not_found_on_tmdb?.length ?? 0) +
 										(report.plex_sync?.not_indexed?.length ?? 0);
 									return count > 0 ? (
 										<span

@@ -25,7 +25,16 @@ export function diskStatus(item, report) {
 	}
 }
 
-export default function Watchlist({ data, error, loading, report, newTitles = new Set(), blockedTitles = new Set(), onBlock, onToast }) {
+export default function Watchlist({
+	data,
+	error,
+	loading,
+	report,
+	newTitles = new Set(),
+	blockedTitles = new Set(),
+	onBlock,
+	onToast,
+}) {
 	const { t } = useLang();
 	const [search, setSearch] = useState("");
 	const [typeFilter, setTypeFilter] = useState("all");
@@ -38,7 +47,8 @@ export default function Watchlist({ data, error, loading, report, newTitles = ne
 			.catch(() => {});
 	}, []);
 
-	if (loading) return <div className="text-center py-12 text-slate-400">{t("loading_watchlist")}</div>;
+	if (loading)
+		return <div className="text-center py-12 text-slate-400">{t("loading_watchlist")}</div>;
 	if (error)
 		return (
 			<div className="bg-[#2d1a1a] border border-[#5c2626] rounded-lg p-4 text-red-500">
@@ -61,7 +71,9 @@ export default function Watchlist({ data, error, loading, report, newTitles = ne
 		}
 	}
 
-	const visibleItems = data.items.filter((i) => !blockedTitles.has(i.title.toLowerCase()) && diskStatus(i, report) !== "complete");
+	const visibleItems = data.items.filter(
+		(i) => !blockedTitles.has(i.title.toLowerCase()) && diskStatus(i, report) !== "complete",
+	);
 
 	const items = visibleItems.filter((item) => {
 		if (search && !item.title.toLowerCase().includes(search.toLowerCase())) return false;
@@ -130,13 +142,19 @@ export default function Watchlist({ data, error, loading, report, newTitles = ne
 	);
 }
 
-function WatchlistCard({ item, onBlock, matchedTorrents = [], diskStatus = null, missingItems = [], isNew = false }) {
+function WatchlistCard({
+	item,
+	onBlock,
+	matchedTorrents = [],
+	diskStatus = null,
+	missingItems = [],
+	isNew = false,
+}) {
 	const { t } = useLang();
 	const [expanded, setExpanded] = useState(false);
 	const isMovie = item.category.toUpperCase() === "MOVIE";
-	const cardCls = diskStatus === "incomplete"
-		? "bg-yellow-950/20 border-yellow-900"
-		: "bg-surface border-border";
+	const cardCls =
+		diskStatus === "incomplete" ? "bg-yellow-950/20 border-yellow-900" : "bg-surface border-border";
 
 	const pad = (n) => String(n).padStart(2, "0");
 	const missingSeasons = missingItems.filter((m) => m.type === "season_missing");
@@ -145,7 +163,9 @@ function WatchlistCard({ item, onBlock, matchedTorrents = [], diskStatus = null,
 	return (
 		<div className={`border rounded-lg px-4 py-3.5 flex flex-col gap-1.5 group ${cardCls}`}>
 			<div className="flex items-start gap-2">
-				<span className="text-sm font-semibold text-slate-200 leading-snug flex-1">{item.title}</span>
+				<span className="text-sm font-semibold text-slate-200 leading-snug flex-1">
+					{item.title}
+				</span>
 				<div className="flex items-center gap-1 shrink-0">
 					{diskStatus === "incomplete" && missingItems.length > 0 && (
 						<button
@@ -156,7 +176,11 @@ function WatchlistCard({ item, onBlock, matchedTorrents = [], diskStatus = null,
 								className={`w-2.5 h-2.5 transition-transform ${expanded ? "rotate-180" : ""}`}
 								viewBox="0 0 20 20"
 								fill="currentColor">
-								<path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+								<path
+									fillRule="evenodd"
+									d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
+									clipRule="evenodd"
+								/>
 							</svg>
 						</button>
 					)}
@@ -168,7 +192,9 @@ function WatchlistCard({ item, onBlock, matchedTorrents = [], diskStatus = null,
 					{matchedTorrents.map((tor) => {
 						const { label, cls } = torrentBadgeProps(tor, t);
 						return (
-							<span key={tor.hash} className={`px-1.5 py-0.5 rounded border text-[10px] font-medium ${cls}`}>
+							<span
+								key={tor.hash}
+								className={`px-1.5 py-0.5 rounded border text-[10px] font-medium ${cls}`}>
 								{label}
 							</span>
 						);
@@ -180,9 +206,7 @@ function WatchlistCard({ item, onBlock, matchedTorrents = [], diskStatus = null,
 					)}
 					<span
 						className={`text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded ${
-							isMovie
-								? "bg-indigo-500/20 text-indigo-400"
-								: "bg-purple-500/20 text-purple-400"
+							isMovie ? "bg-indigo-500/20 text-indigo-400" : "bg-purple-500/20 text-purple-400"
 						}`}>
 						{isMovie ? t("badge_movie") : t("badge_series")}
 					</span>
@@ -192,7 +216,11 @@ function WatchlistCard({ item, onBlock, matchedTorrents = [], diskStatus = null,
 				<span>{item.year}</span>
 				<div className="flex items-center gap-2">
 					{item.link && item.link !== "No link" && (
-						<a href={item.link} target="_blank" rel="noreferrer" className="text-indigo-500 hover:underline">
+						<a
+							href={item.link}
+							target="_blank"
+							rel="noreferrer"
+							className="text-indigo-500 hover:underline">
 							{t("plex_link")}
 						</a>
 					)}
@@ -212,7 +240,9 @@ function WatchlistCard({ item, onBlock, matchedTorrents = [], diskStatus = null,
 								{t("full_season_badge")}
 							</span>
 							<span className="text-slate-300">{t("season_label", { n: m.season })}</span>
-							{m.first_air_date && <span className="text-slate-500 ml-auto">{m.first_air_date}</span>}
+							{m.first_air_date && (
+								<span className="text-slate-500 ml-auto">{m.first_air_date}</span>
+							)}
 						</div>
 					))}
 					{missingEpisodes.map((m) => (

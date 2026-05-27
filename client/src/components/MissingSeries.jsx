@@ -67,14 +67,30 @@ export default function MissingSeries({ data, error, loading, newKeys = new Set(
 		<div>
 			<div className="flex gap-4 mb-5 flex-wrap">
 				{data.total_shows != null && (
-					<StatCard label={t("stat_series_on_disk")} value={data.total_shows} colorClass="text-slate-200" />
+					<StatCard
+						label={t("stat_series_on_disk")}
+						value={data.total_shows}
+						colorClass="text-slate-200"
+					/>
 				)}
-				{data.total_seasons != null && <StatCard label={t("stat_seasons")} value={data.total_seasons} />}
-				{data.total_episodes != null && <StatCard label={t("stat_episodes")} value={data.total_episodes} />}
+				{data.total_seasons != null && (
+					<StatCard label={t("stat_seasons")} value={data.total_seasons} />
+				)}
+				{data.total_episodes != null && (
+					<StatCard label={t("stat_episodes")} value={data.total_episodes} />
+				)}
 
 				<StatCard label={t("stat_missing_seasons")} value={seasonCount} colorClass="text-red-500" />
-				<StatCard label={t("stat_missing_episodes")} value={episodeCount} colorClass="text-yellow-500" />
-				<StatCard label={t("stat_affected_series")} value={showCount} colorClass="text-orange-500" />
+				<StatCard
+					label={t("stat_missing_episodes")}
+					value={episodeCount}
+					colorClass="text-yellow-500"
+				/>
+				<StatCard
+					label={t("stat_affected_series")}
+					value={showCount}
+					colorClass="text-orange-500"
+				/>
 				{data.multiple_videos?.length > 0 && (
 					<StatCard
 						label={t("stat_multiple_versions")}
@@ -158,8 +174,8 @@ function rowTorrents(m, matchedTorrents) {
 		return matchedTorrents.filter((t) => torrentCoversSeason(t.name, m.season));
 	}
 	const tag = `s${pad(m.season)}e${pad(m.episode)}`;
-	return matchedTorrents.filter((t) =>
-		normalizeName(t.name).includes(tag) || torrentCoversSeason(t.name, m.season)
+	return matchedTorrents.filter(
+		(t) => normalizeName(t.name).includes(tag) || torrentCoversSeason(t.name, m.season),
 	);
 }
 
@@ -169,7 +185,8 @@ function compressEpisodes(episodes) {
 	const pad = (n) => "E" + String(n).padStart(2, "0");
 	const sorted = [...episodes].sort((a, b) => a - b);
 	const ranges = [];
-	let start = sorted[0], end = sorted[0];
+	let start = sorted[0],
+		end = sorted[0];
 	for (let i = 1; i < sorted.length; i++) {
 		if (sorted[i] === end + 1) {
 			end = sorted[i];
@@ -290,66 +307,71 @@ function ShowSection({
 				</div>
 			</button>
 
-			{expanded && (() => {
-				const bySeasonNum = {};
-				for (const m of items) {
-					if (!bySeasonNum[m.season]) bySeasonNum[m.season] = { full: null, episodes: [] };
-					if (m.type === "season_missing") bySeasonNum[m.season].full = m;
-					else bySeasonNum[m.season].episodes.push(m);
-				}
-				const seasons = Object.keys(bySeasonNum).map(Number).sort((a, b) => a - b);
-				return (
-					<div className="border-t border-border divide-y divide-border">
-						{seasons.map((s) => {
-							const { full, episodes } = bySeasonNum[s];
-							const pad2 = (n) => String(n).padStart(2, "0");
-							const isNewSeason = full
-								? newKeys.has(seriesKey(full))
-								: episodes.some((m) => newKeys.has(seriesKey(m)));
-							const seasonTorrents = full
-								? rowTorrents(full, matchedTorrents)
-								: matchedTorrents.filter((tor) => torrentCoversSeason(tor.name, s));
-							const airDate = full
-								? full.first_air_date || full.air_date
-								: episodes[0]?.first_air_date || episodes[0]?.air_date;
-							return (
-								<div key={s} className="flex items-center gap-3 px-4 py-2.5 hover:bg-surface2">
-									<span className="text-slate-400 text-[13px] shrink-0 w-20">
-										{t("season_label", { n: pad2(s) })}
-									</span>
-									<div className="flex items-center gap-2 flex-wrap flex-1">
-										{full ? (
-											<span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-red-500/15 text-red-400 border border-red-800">
-												{t("season_missing_full")}
-											</span>
-										) : (
-											<span className="text-yellow-500 font-mono text-[12px]">
-												{compressEpisodes(episodes.map((m) => m.episode))}
-											</span>
-										)}
-										{isNewSeason && (
-											<span className="px-1.5 py-0.5 rounded border text-[10px] font-medium text-teal-400 border-teal-800 bg-teal-950/40">
-												{t("badge_new")}
-											</span>
-										)}
-										{seasonTorrents.map((tor) => {
-											const { label, cls } = torrentBadgeProps(tor, t);
-											return (
-												<span key={tor.hash} className={`px-1.5 py-0.5 rounded border text-[10px] font-medium ${cls}`}>
-													{label}
+			{expanded &&
+				(() => {
+					const bySeasonNum = {};
+					for (const m of items) {
+						if (!bySeasonNum[m.season]) bySeasonNum[m.season] = { full: null, episodes: [] };
+						if (m.type === "season_missing") bySeasonNum[m.season].full = m;
+						else bySeasonNum[m.season].episodes.push(m);
+					}
+					const seasons = Object.keys(bySeasonNum)
+						.map(Number)
+						.sort((a, b) => a - b);
+					return (
+						<div className="border-t border-border divide-y divide-border">
+							{seasons.map((s) => {
+								const { full, episodes } = bySeasonNum[s];
+								const pad2 = (n) => String(n).padStart(2, "0");
+								const isNewSeason = full
+									? newKeys.has(seriesKey(full))
+									: episodes.some((m) => newKeys.has(seriesKey(m)));
+								const seasonTorrents = full
+									? rowTorrents(full, matchedTorrents)
+									: matchedTorrents.filter((tor) => torrentCoversSeason(tor.name, s));
+								const airDate = full
+									? full.first_air_date || full.air_date
+									: episodes[0]?.first_air_date || episodes[0]?.air_date;
+								return (
+									<div key={s} className="flex items-center gap-3 px-4 py-2.5 hover:bg-surface2">
+										<span className="text-slate-400 text-[13px] shrink-0 w-20">
+											{t("season_label", { n: pad2(s) })}
+										</span>
+										<div className="flex items-center gap-2 flex-wrap flex-1">
+											{full ? (
+												<span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-red-500/15 text-red-400 border border-red-800">
+													{t("season_missing_full")}
 												</span>
-											);
-										})}
+											) : (
+												<span className="text-yellow-500 font-mono text-[12px]">
+													{compressEpisodes(episodes.map((m) => m.episode))}
+												</span>
+											)}
+											{isNewSeason && (
+												<span className="px-1.5 py-0.5 rounded border text-[10px] font-medium text-teal-400 border-teal-800 bg-teal-950/40">
+													{t("badge_new")}
+												</span>
+											)}
+											{seasonTorrents.map((tor) => {
+												const { label, cls } = torrentBadgeProps(tor, t);
+												return (
+													<span
+														key={tor.hash}
+														className={`px-1.5 py-0.5 rounded border text-[10px] font-medium ${cls}`}>
+														{label}
+													</span>
+												);
+											})}
+										</div>
+										{airDate && (
+											<span className="text-slate-500 text-[12px] shrink-0">{airDate}</span>
+										)}
 									</div>
-									{airDate && (
-										<span className="text-slate-500 text-[12px] shrink-0">{airDate}</span>
-									)}
-								</div>
-							);
-						})}
-					</div>
-				);
-			})()}
+								);
+							})}
+						</div>
+					);
+				})()}
 		</div>
 	);
 }
