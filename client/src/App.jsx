@@ -174,7 +174,14 @@ function AppContent() {
 					.catch(() => null),
 			),
 		).then((results) => {
-			const total = results.reduce((sum, d) => sum + (d?.total ?? 0), 0);
+			const seen = new Set();
+			const total = results.reduce((sum, d) => {
+				if (!d || d.total == null) return sum;
+				const key = d.dev ?? d.total;
+				if (seen.has(key)) return sum;
+				seen.add(key);
+				return sum + d.total;
+			}, 0);
 			if (total > 0) setTotalDiskCapacity(total);
 		});
 	}, [savePaths]);

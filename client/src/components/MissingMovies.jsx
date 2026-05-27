@@ -16,12 +16,13 @@ export default function MissingMovies({ data, error, loading, newKeys = new Set(
 		);
 	if (!data) return null;
 
-	const missing = data.missing.filter(
+	const visibleMissing = data.missing.filter((m) => !blockedTitles.has(m.title.toLowerCase()));
+
+	const missing = visibleMissing.filter(
 		(m) =>
-			!blockedTitles.has(m.title.toLowerCase()) &&
-			(!search ||
-				m.title.toLowerCase().includes(search.toLowerCase()) ||
-				(m.collection || "").toLowerCase().includes(search.toLowerCase())),
+			!search ||
+			m.title.toLowerCase().includes(search.toLowerCase()) ||
+			(m.collection || "").toLowerCase().includes(search.toLowerCase()),
 	);
 
 	const byCollection = missing.reduce((acc, m) => {
@@ -37,7 +38,7 @@ export default function MissingMovies({ data, error, loading, newKeys = new Set(
 		<div>
 			<div className="flex gap-4 mb-5 flex-wrap">
 				{data.total != null && <StatCard label={t("stat_movies_on_disk")} value={data.total} colorClass="text-slate-200" />}
-				<StatCard label={t("stat_missing_movies")} value={data.missing.length} colorClass="text-red-500" />
+				<StatCard label={t("stat_missing_movies")} value={visibleMissing.length} colorClass="text-red-500" />
 				<StatCard label={t("stat_affected_collections")} value={collections.length} />
 				{data.multiple_videos?.length > 0 && (
 					<StatCard

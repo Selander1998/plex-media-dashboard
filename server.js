@@ -1,5 +1,5 @@
 import express from "express";
-import { readFile, writeFile, statfs } from "fs/promises";
+import { readFile, writeFile, statfs, stat } from "fs/promises";
 import { fileURLToPath } from "url";
 import { join, dirname } from "path";
 import { execFile } from "child_process";
@@ -180,10 +180,10 @@ app.get("/api/disk-space", async (req, res) => {
 		return res.status(403).json({ error: "Path not allowed" });
 	}
 	try {
-		const s = await statfs(path);
+		const [s, st] = await Promise.all([statfs(path), stat(path)]);
 		const available = s.bavail * s.bsize;
 		const total = s.blocks * s.bsize;
-		res.json({ available, total });
+		res.json({ available, total, dev: st.dev });
 	} catch (err) {
 		res.status(500).json({ error: "Failed to stat path", detail: err.message });
 	}
