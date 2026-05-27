@@ -1,5 +1,11 @@
 """
 check_movies, check_series, check_plex_sync — the three main analysis passes.
+
+Output philosophy: only print lines that require attention.
+  ✗  — missing content
+  ~  — intentionally skipped (blacklisted)
+  [WARN] — file/naming issue worth knowing about
+Section headers and counts are always printed; per-item "Checking X" lines are not.
 """
 
 import os
@@ -61,7 +67,7 @@ def check_movies(movies_roots, api_key, cache, blacklist):
 	titles_on_disk = [{"title": t, "year": y} for t, y in (parse_name_year(f.name) for f in all_folders)]
 
 	print(f"  {len(all_folders)} movies found across {len(movies_roots)} drive(s)")
-	print(f"  Pass 1/2: Resolving local movies to TMDB IDs...\n")
+	print(f"  Pass 1/2: Resolving local movies to TMDB IDs...\n", flush=True)
 
 	# ── Pass 1: look up every local folder on TMDB ────────────────────────────
 	local_tmdb_ids = set()
@@ -71,10 +77,8 @@ def check_movies(movies_roots, api_key, cache, blacklist):
 	not_found_on_tmdb = []
 	total_size = 0
 
-	total = len(all_folders)
-	for i, folder in enumerate(all_folders, 1):
+	for folder in all_folders:
 		title, year = parse_name_year(folder.name)
-		print(f"  [{i}/{total}] {folder.name}", flush=True)
 
 		movie = search_movie(title, year, api_key, cache)
 		videos = []
@@ -92,18 +96,18 @@ def check_movies(movies_roots, api_key, cache, blacklist):
 
 		if len(videos) > 1:
 			multiple_videos.append({"folder": folder.name, "videos": videos})
-			print(f"    [WARN] Multiple video files found: {videos}")
+			print(f"  [WARN] {folder.name} — multiple video files: {', '.join(videos)}")
 		if extras:
 			unneeded_files.append({"folder": folder.name, "files": extras})
-			print(f"    [WARN] Unneeded files found: {extras}")
+			print(f"  [WARN] {folder.name} — unneeded files: {', '.join(extras)}")
 		if movie:
 			local_tmdb_ids.add(movie["id"])
 			folder_to_tmdb_id[folder.name] = movie["id"]
 		else:
 			not_found_on_tmdb.append({"folder": folder.name, "title": title, "year": year})
-			print(f"    [WARN] Not found on TMDB (searched: '{title}' {year})")
+			print(f"  [WARN] {folder.name} — not found on TMDB")
 
-	print(f"\n  Pass 2/2: Checking collections for gaps...\n")
+	print(f"\n  Pass 2/2: Checking collections for gaps...\n", flush=True)
 
 	# ── Pass 2: for each movie in a collection, check completeness ────────────
 	missing = []
@@ -124,7 +128,6 @@ def check_movies(movies_roots, api_key, cache, blacklist):
 			continue
 		seen_collections.add(col_key)
 
-		print(f"  Collection: {collection_name}")
 		collection_missing = []
 
 		for part in parts:
@@ -139,11 +142,11 @@ def check_movies(movies_roots, api_key, cache, blacklist):
 				continue
 
 			if part_id in local_tmdb_ids:
-				print(f"    ✓ {part_title} ({part_year})")
+				pass
 			elif is_movie_blacklisted(blacklist, part_title, collection_name):
-				print(f"    ~ {part_title} ({part_year})  [blacklisted]")
+				print(f"  ~ MISSING (blacklisted): {part_title} ({part_year})  [{collection_name}]")
 			else:
-				print(f"    ✗ MISSING: {part_title} ({part_year})")
+				print(f"  ✗ MISSING: {part_title} ({part_year})  [{collection_name}]")
 				collection_missing.append({
 					"type": "movie",
 					"collection": collection_name,
@@ -204,7 +207,7 @@ def check_series(series_roots, api_key, cache, blacklist, series_filter=None):
 				"not_found_on_tmdb": [],
 			}
 
-	print(f"  {len(all_show_folders)} shows found across {len(series_roots)} drive(s)\n")
+	print(f"  {len(all_show_folders)} shows found across {len(series_roots)} drive(s)", flush=True)
 
 	missing = []
 	multiple_videos = []
@@ -219,15 +222,12 @@ def check_series(series_roots, api_key, cache, blacklist, series_filter=None):
 		title, year = parse_name_year(show_folder.name)
 
 		if is_show_blacklisted(blacklist, title):
-			print(f"  Skipping: {show_folder.name}  [blacklisted]")
 			continue
-
-		print(f"  Checking: {show_folder.name}")
 
 		tv = search_tv(title, year, api_key, cache)
 		if not tv:
 			not_found_on_tmdb.append({"folder": show_folder.name, "title": title, "year": year})
-			print(f"    [WARN] Not found on TMDB — skipping")
+			print(f"  [WARN] {show_folder.name} — not found on TMDB")
 			continue
 
 		tv_id = tv["id"]
@@ -243,7 +243,7 @@ def check_series(series_roots, api_key, cache, blacklist, series_filter=None):
 					if sn is not None:
 						season_files.setdefault(sn, []).append(d)
 					else:
-						print(f"    [WARN] Video file in show root lacks season number: {d.name}")
+						print(f"  [WARN] {show_folder.name} — video file lacks season number: {d.name}")
 						unneeded_files.append({"show": title, "file": f"{show_folder.name}/{d.name}"})
 				elif d.suffix.lower() not in ALLOWED_EXTS:
 					unneeded_files.append({"show": title, "file": f"{show_folder.name}/{d.name}"})
@@ -282,7 +282,7 @@ def check_series(series_roots, api_key, cache, blacklist, series_filter=None):
 
 		if uses_absolute:
 			_check_absolute_show(
-				show_folder, title, tv_id, total_seasons, season_files, today,
+				title, tv_id, total_seasons, season_files, today,
 				api_key, cache, blacklist, missing, multiple_videos,
 			)
 			continue
@@ -301,7 +301,7 @@ def check_series(series_roots, api_key, cache, blacklist, series_filter=None):
 				continue
 
 			if is_season_blacklisted(blacklist, title, sn):
-				print(f"    ~ Season {sn:02d}: entire season missing but blacklisted")
+				print(f"  ~ {show_folder.name}  S{sn:02d}: entire season missing but blacklisted")
 				continue
 
 			missing.append({
@@ -311,7 +311,7 @@ def check_series(series_roots, api_key, cache, blacklist, series_filter=None):
 				"first_air_date": min(air_dates),
 				"tmdb_id": tv_id,
 			})
-			print(f"    ✗ Season {sn:02d}: ENTIRE SEASON MISSING (premiered {min(air_dates)})")
+			print(f"  ✗ {show_folder.name}  S{sn:02d}: ENTIRE SEASON MISSING (premiered {min(air_dates)})")
 
 		# ── Detect missing episodes within seasons you have ───────────────────
 		for sn, files in sorted(season_files.items()):
@@ -339,11 +339,11 @@ def check_series(series_roots, api_key, cache, blacklist, series_filter=None):
 						"show": title,
 						"file": f"{show_folder.name}/Season {str(sn).zfill(2)}/{f.name}",
 					})
-					print(f"    [WARN] Season {sn:02d}: unrecognised episode filename: {f.name}")
+					print(f"  [WARN] {show_folder.name}  S{sn:02d}: unrecognised filename: {f.name}")
 
 			season_data = get_tv_season(tv_id, sn, api_key, cache)
 			if not season_data or "episodes" not in season_data:
-				print(f"    [WARN] Season {sn}: could not fetch info from TMDB")
+				print(f"  [WARN] {show_folder.name}  S{sn:02d}: could not fetch TMDB info")
 				continue
 
 			air_dates = {ep["episode_number"]: ep.get("air_date", "") for ep in season_data["episodes"]}
@@ -371,10 +371,7 @@ def check_series(series_roots, api_key, cache, blacklist, series_filter=None):
 						"tmdb_id": tv_id,
 					})
 				bl_note = f" ({blacklisted_count} blacklisted)" if blacklisted_count else ""
-				print(f"    ✗ Season {sn:02d}: missing episodes {gap_filtered}{bl_note}")
-			else:
-				bl_note = f" ({blacklisted_count} blacklisted)" if blacklisted_count else ""
-				print(f"    ✓ Season {sn:02d}: complete ({len(present)} ep{bl_note})")
+				print(f"  ✗ {show_folder.name}  S{sn:02d}: missing ep {gap_filtered}{bl_note}")
 
 	return {
 		"total_shows": len(all_show_folders),
@@ -389,7 +386,7 @@ def check_series(series_roots, api_key, cache, blacklist, series_filter=None):
 	}
 
 
-def _check_absolute_show(show_folder, title, tv_id, total_seasons, season_files, today, api_key, cache, blacklist, missing, multiple_videos):
+def _check_absolute_show(title, tv_id, total_seasons, season_files, today, api_key, cache, blacklist, missing, multiple_videos):
 	"""Handle episode-completeness check for absolute-numbered (anime-style) shows."""
 	all_present = set()
 	ep_to_file = {}
@@ -397,7 +394,7 @@ def _check_absolute_show(show_folder, title, tv_id, total_seasons, season_files,
 	flat_eps = get_all_tv_episodes_flat(tv_id, total_seasons, api_key, cache)
 	flat_eps_data = {n: v["name"] for n, v in flat_eps.items()}
 
-	for sn, files in season_files.items():
+	for _, files in season_files.items():
 		for f in files:
 			eps = None
 			ep_tags = re.findall(r'\[Ep\s*(\d+)\]', f.name, re.IGNORECASE)
@@ -458,11 +455,8 @@ def _check_absolute_show(show_folder, title, tv_id, total_seasons, season_files,
 				"air_date": flat_eps[ep]["air_date"],
 				"tmdb_id": tv_id,
 			})
-		bl_note = f", {blacklisted_count} blacklisted" if blacklisted_count else ""
-		print(f"    ✗ absolute-numbered, missing ep: {gap_display}{bl_note}")
-	else:
 		bl_note = f" ({blacklisted_count} blacklisted)" if blacklisted_count else ""
-		print(f"    ✓ All episodes present (absolute, {len(all_present)} ep{bl_note})")
+		print(f"  ✗ {title}  absolute ep missing: {gap_display}{bl_note}")
 
 
 # ─── Plex sync check ──────────────────────────────────────────────────────────

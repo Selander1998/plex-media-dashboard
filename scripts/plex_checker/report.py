@@ -72,4 +72,4 @@ def save_report(report_data, out_path):
 	report_data["generated"] = datetime.now(timezone.utc).isoformat()
 	with open(out_path, "w") as f:
 		json.dump(report_data, f, indent=2)
-	print(f"  JSON report saved → {out_path}")
+	print("  ✓ Report saved")

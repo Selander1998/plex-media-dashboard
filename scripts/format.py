@@ -34,9 +34,7 @@ def main():
 	result = process_watchlist(rss_urls, output_path, remove_unreleased=True, blacklist=blacklist, as_json=True)
 
 	if result is None:
-		print("Failed to create output file")
-	else:
-		print("Output file created successfully")
+		print("  [ERROR] Failed to write watchlist output file")
 
 
 if __name__ == "__main__":

@@ -60,7 +60,8 @@ function updateLogLineClass(line) {
 		return "text-red-400";
 	if (/\[WARN\]/.test(line)) return "text-amber-400";
 	if (/[↻]/.test(line)) return "text-indigo-400";
-	if (/[✓~]/.test(line)) return "text-emerald-400";
+	if (/[✓]/.test(line)) return "text-emerald-400";
+	if (/^\s*~/.test(line)) return "text-slate-500";
 	if (/[A-Z]{3,}.*—/.test(line) || /^Plex Media Checker/.test(line.trim()))
 		return "text-slate-100 font-medium";
 	if (/^\[\d{2}:\d{2}:\d{2}\]/.test(line.trim())) return "text-slate-300";

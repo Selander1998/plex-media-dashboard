@@ -22,7 +22,6 @@ def load_blacklist(blacklist_path: str) -> Set[str]:
 			data = json.load(f)
 		entries = data.get("watchlist", [])
 		blacklist = {e.lower() for e in entries if isinstance(e, str)}
-		print(f"  Loaded {len(blacklist)} blacklist entries")
 	except FileNotFoundError:
 		pass
 	except (IOError, json.JSONDecodeError) as e:
@@ -83,7 +82,6 @@ def process_watchlist(
 			continue
 
 		items = parse_rss_items(xml_content)
-		print(f"  Parsed {len(items)} item(s)")
 
 		for item in items:
 			data = extract_item_data(item)

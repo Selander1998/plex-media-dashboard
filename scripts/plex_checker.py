@@ -91,10 +91,7 @@ Examples:
 	blacklist = load_blacklist(args.blacklist)
 	cache = load_cache(args.cache)
 
-	print("\nPlex Media Checker")
-	print(f"Time  : {datetime.now().strftime('%Y-%m-%d %H:%M')}")
-	print(f"Movies: {', '.join(movies_roots)}")
-	print(f"Series: {', '.join(series_roots)}")
+	print(f"\nPlex Media Checker  {datetime.now().strftime('%Y-%m-%d %H:%M')}")
 
 	report_data = {
 		"movies": {
