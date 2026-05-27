@@ -115,6 +115,7 @@ function AppContent() {
 	}, []);
 
 	const fetchTorrents = useCallback(async () => {
+		if (document.visibilityState !== "visible") return;
 		try {
 			const [tRes, xRes] = await Promise.all([fetch("/api/torrents"), fetch("/api/qbit/transfer")]);
 			const [tData, xData] = await Promise.all([tRes.json(), xRes.json()]);
@@ -141,6 +142,17 @@ function AppContent() {
 		const id = setInterval(fetchTorrents, 5000);
 		return () => clearInterval(id);
 	}, [fetchTorrents]);
+
+	useEffect(() => {
+		const handleVisibility = () => {
+			if (document.visibilityState === "visible") {
+				fetchTorrents();
+				loadData().catch(() => {});
+			}
+		};
+		document.addEventListener("visibilitychange", handleVisibility);
+		return () => document.removeEventListener("visibilitychange", handleVisibility);
+	}, [fetchTorrents, loadData]);
 
 	useEffect(() => {
 		loadData().catch(() => {
