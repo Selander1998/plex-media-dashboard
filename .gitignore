@@ -7,6 +7,11 @@ node_modules/
 # Built frontend
 client/dist/
 
+# Python bytecode cache (created automatically in every package directory)
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+
 # Generated data files (produced by update.sh)
 scripts/report.json
 scripts/watchlist.json
