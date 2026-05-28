@@ -176,6 +176,13 @@ media-dashboard/
 │       │   ├── MissingSeries.jsx  # Missing series/episodes tab
 │       │   ├── Warnings.jsx       # Library warnings tab
 │       │   └── StatCard.jsx       # Stats card canvas renderer
+│       ├── hooks/
+│       │   ├── useMediaData.js    # Report, watchlist, blacklist fetching and new-item diffing
+│       │   ├── useTorrents.js     # Torrent polling with 5s interval
+│       │   ├── useSavePaths.js    # Save-path list and disk space fetching
+│       │   ├── useUpdate.js       # update.sh streaming, log state, auto-scroll
+│       │   ├── useMagnet.js       # Magnet paste mode and torrent submission
+│       │   └── useToasts.js       # Toast queue and pushToast helper
 │       ├── utils/
 │       │   ├── format.js      # formatBytes helper
 │       │   └── updateLog.js   # Update log line filtering, stat extraction, and coloring
