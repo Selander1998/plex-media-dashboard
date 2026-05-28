@@ -492,25 +492,8 @@ def check_plex_sync(plex_url, plex_token, movies_roots, series_roots):
 		print(f"  [WARN] Could not reach Plex: {e}")
 		return {"not_indexed": [], "stale": []}
 
-	# Trigger a partial scan so newly downloaded files get picked up
-	triggered = 0
-	for section in sections:
-		try:
-			tmdb_session.get(
-				f"{plex_url}/library/sections/{section['key']}/refresh",
-				headers=headers,
-				timeout=10,
-			)
-			triggered += 1
-		except Exception:
-			pass
-	if triggered:
-		print(f"  ↻ Triggered scan on {triggered} section(s) — waiting {plex_scan_wait}s for Plex to index…")
-		time.sleep(plex_scan_wait)
-
-	# Fetch all file paths currently indexed by Plex
-	plex_files = set()
-	try:
+	def fetch_plex_files():
+		files = set()
 		for section in sections:
 			skey = section["key"]
 			params = {"X-Plex-Token": plex_token}
@@ -526,7 +509,12 @@ def check_plex_sync(plex_url, plex_token, movies_roots, series_roots):
 			for item in r2.json()["MediaContainer"].get("Metadata", []):
 				for media in item.get("Media", []):
 					for part in media.get("Part", []):
-						plex_files.add(part["file"])
+						files.add(part["file"])
+		return files
+
+	# Fetch current Plex index before deciding whether to scan
+	try:
+		plex_files = fetch_plex_files()
 		print(f"  Plex has {len(plex_files)} files indexed")
 	except Exception as e:
 		print(f"  [WARN] Could not reach Plex: {e}")
@@ -543,6 +531,35 @@ def check_plex_sync(plex_url, plex_token, movies_roots, series_roots):
 				disk_files.add(str(f))
 
 	print(f"  Disk has {len(disk_files)} video files")
+
+	# If everything on disk is already indexed, skip the scan entirely
+	if not (disk_files - plex_files):
+		print("  ✓ All disk files indexed by Plex")
+		return {"not_indexed": []}
+
+	# New files detected — trigger scan and wait for Plex to index them
+	triggered = 0
+	for section in sections:
+		try:
+			tmdb_session.get(
+				f"{plex_url}/library/sections/{section['key']}/refresh",
+				headers=headers,
+				timeout=10,
+			)
+			triggered += 1
+		except Exception:
+			pass
+	if triggered:
+		new_count = len(disk_files - plex_files)
+		print(f"  ↻ {new_count} unindexed file(s) — triggered scan on {triggered} section(s), waiting {plex_scan_wait}s…")
+		time.sleep(plex_scan_wait)
+
+	# Re-fetch after scan to get the updated index
+	try:
+		plex_files = fetch_plex_files()
+	except Exception as e:
+		print(f"  [WARN] Could not reach Plex after scan: {e}")
+		return {"not_indexed": [], "stale": []}
 
 	# Files on disk not indexed by Plex
 	not_indexed = []
