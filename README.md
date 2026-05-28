@@ -151,33 +151,55 @@ The new language will appear in the header toggle automatically. The language ch
 
 ---
 
-r
-
 ## Project structure
 
 ```
 media-dashboard/
-├── server.js              # Express API server
-├── ecosystem.config.cjs   # PM2 config
-├── .env.example           # Server environment template
-├── client/                # React frontend (Vite + Tailwind)
+├── server.js                  # Express API server
+├── ecosystem.config.cjs       # PM2 config
+├── .env.example               # Server environment template
+├── client/                    # React frontend (Vite + Tailwind)
 │   └── src/
-│       ├── App.jsx
-│       ├── components/
-│       │   ├── Torrents.jsx
-│       │   ├── Watchlist.jsx
-│       │   ├── MissingMovies.jsx
-│       │   ├── MissingSeries.jsx
-│       │   └── Warnings.jsx
+│       ├── App.jsx            # Root — state, effects, handlers, layout
+│       ├── LangContext.jsx    # i18n context + useLang hook
+│       ├── translations.js    # Loads locale JSON + flag SVGs at build time
 │       ├── exportStats.js     # PNG stats card generator
-│       ├── translations.js    # en/sv strings
-│       └── LangContext.jsx    # i18n context
+│       ├── torrentUtils.js    # Torrent helper utilities
+│       ├── components/
+│       │   ├── Header.jsx         # Sticky header: title, storage info, action buttons, tab nav
+│       │   ├── UpdateModal.jsx    # Overlay shown while update.sh is running
+│       │   ├── PasteModal.jsx     # Magnet-link paste overlay
+│       │   ├── ToastList.jsx      # Fixed-position toast notifications
+│       │   ├── Torrents.jsx       # Torrent list tab
+│       │   ├── Watchlist.jsx      # Plex RSS watchlist tab
+│       │   ├── MissingMovies.jsx  # Missing movies tab
+│       │   ├── MissingSeries.jsx  # Missing series/episodes tab
+│       │   ├── Warnings.jsx       # Library warnings tab
+│       │   └── StatCard.jsx       # Stats card canvas renderer
+│       ├── utils/
+│       │   ├── format.js      # formatBytes helper
+│       │   └── updateLog.js   # Update log line filtering, stat extraction, and coloring
+│       └── locales/
+│           ├── en.json        # English strings
+│           ├── sv.json        # Swedish strings
+│           ├── gb.svg         # GB flag
+│           └── se.svg         # SE flag
 └── scripts/
-    ├── update.sh          # Runs both scripts below
-    ├── plex_checker.py    # Scans library, checks Plex, outputs report.json
-    ├── format.py          # Fetches watchlist from TMDB/Plex RSS, outputs watchlist.json
-    ├── .env.example       # Scripts environment template
-    └── blacklist.txt      # Titles excluded from missing-content reports
+    ├── update.sh              # Runs plex_checker and format, outputs JSON files
+    ├── plex_checker.py        # Entry point: scans library, checks Plex, writes report.json
+    ├── plex_checker/          # Package: library scanning and Plex checking logic
+    │   ├── blacklist.py       # Blacklist loading and matching
+    │   ├── cache.py           # TMDB response cache (read/write)
+    │   ├── checkers.py        # check_movies() and check_series() logic
+    │   ├── media_scan.py      # Folder parsing, episode detection, file classification
+    │   ├── report.py          # JSON report serialisation
+    │   └── tmdb.py            # TMDB API client (search, seasons, episodes)
+    ├── format.py              # Entry point: fetches watchlist, writes watchlist.json
+    ├── watchlist/             # Package: RSS feed fetching and watchlist processing
+    │   ├── feed.py            # RSS/TMDB feed fetching and item parsing
+    │   └── processor.py       # Watchlist filtering, deduplication, output formatting
+    ├── .env.example           # Scripts environment template
+    └── plex_blacklist.json    # Titles excluded from missing-content reports
 ```
 
 ---
