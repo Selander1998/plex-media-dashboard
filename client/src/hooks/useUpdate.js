@@ -17,7 +17,16 @@ export function useUpdate({ onSuccess, onError } = {}) {
 	const [updateStatus, setUpdateStatus] = useState(null);
 	const [updateLog, setUpdateLog] = useState([]);
 	const [updateStats, setUpdateStats] = useState({});
+	const [noCache, setNoCache] = useState(false);
+	const [tick, setTick] = useState(0);
 	const logRef = useRef(null);
+	const timestamps = useRef({});
+
+	useEffect(() => {
+		if (!refreshing) return;
+		const id = setInterval(() => setTick((n) => n + 1), 1000);
+		return () => clearInterval(id);
+	}, [refreshing]);
 
 	useEffect(() => {
 		if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
@@ -25,11 +34,15 @@ export function useUpdate({ onSuccess, onError } = {}) {
 
 	async function handleRefresh() {
 		if (refreshing) return;
+		const cacheCheck = await fetch("/api/cache").then((r) => r.json()).catch(() => ({ exists: true }));
+		timestamps.current = {};
 		flushSync(() => {
 			setRefreshing(true);
 			setUpdateStatus(null);
 			setUpdateLog([]);
 			setUpdateStats({});
+			setNoCache(!cacheCheck.exists);
+			setTick(0);
 		});
 		try {
 			const res = await fetch("/api/update", { method: "POST" });
@@ -57,8 +70,15 @@ export function useUpdate({ onSuccess, onError } = {}) {
 					}
 					if (payload.error) throw new Error();
 					if (payload.line) {
-						setUpdateStats((prev) => extractUpdateStat(payload.line, prev));
-						if (shouldShowUpdateLine(payload.line)) newLines.push(payload.line);
+						const line = payload.line;
+						setUpdateStats((prev) => extractUpdateStat(line, prev));
+						if (!timestamps.current.moviesStart && /\d+ movies? found/i.test(line))
+							timestamps.current.moviesStart = Date.now();
+						if (!timestamps.current.showsStart && /\d+ shows? found/i.test(line))
+							timestamps.current.showsStart = Date.now();
+						if (!timestamps.current.plexStart && /Plex has \d+ files? indexed/i.test(line))
+							timestamps.current.plexStart = Date.now();
+						if (shouldShowUpdateLine(line)) newLines.push(line);
 					}
 				}
 				if (newLines.length) {
@@ -68,6 +88,7 @@ export function useUpdate({ onSuccess, onError } = {}) {
 			}
 
 			if (!success) throw new Error();
+			timestamps.current.endTime = Date.now();
 			await onSuccessRef.current?.();
 			setUpdateStatus("ok");
 		} catch {
@@ -82,6 +103,9 @@ export function useUpdate({ onSuccess, onError } = {}) {
 		setUpdateStatus(null);
 		setUpdateLog([]);
 		setUpdateStats({});
+		setNoCache(false);
+		setTick(0);
+		timestamps.current = {};
 	}
 
 	return {
@@ -89,6 +113,9 @@ export function useUpdate({ onSuccess, onError } = {}) {
 		updateStatus,
 		updateLog,
 		updateStats,
+		noCache,
+		tick,
+		timestamps,
 		logRef,
 		handleRefresh,
 		handleClose,

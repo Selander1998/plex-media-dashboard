@@ -496,6 +496,15 @@ setInterval(async () => {
 
 app.get("/api/version", (_req, res) => res.json({ hash: GIT_HASH }));
 
+app.get("/api/cache", async (_req, res) => {
+	try {
+		await stat(TMDB_CACHE_PATH);
+		res.json({ exists: true });
+	} catch {
+		res.json({ exists: false });
+	}
+});
+
 app.delete("/api/cache", async (_req, res) => {
 	try {
 		await unlink(TMDB_CACHE_PATH);

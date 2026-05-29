@@ -92,6 +92,8 @@ Examples:
 	cache = load_cache(args.cache)
 
 	print(f"\nPlex Media Checker  {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+	if not cache:
+		print("  [INFO] No cache found — all TMDB data will be fetched fresh. This run will take longer than usual.")
 
 	report_data = {
 		"movies": {

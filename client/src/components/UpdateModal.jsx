@@ -1,8 +1,19 @@
 import { useLang } from "../LangContext.jsx";
 import { updateLogLineClass } from "../utils/updateLog.js";
 
-export default function UpdateModal({ updateStatus, updateLog, updateStats, logRef, onClose }) {
+function secs(start, end) {
+	if (!start) return null;
+	return Math.floor(((end ?? Date.now()) - start) / 1000);
+}
+
+export default function UpdateModal({ updateStatus, updateLog, updateStats, noCache, tick, timestamps, logRef, onClose }) {
 	const { t } = useLang();
+	// tick is read to force re-renders for live timer; timestamps.current holds section start/end times
+	void tick;
+	const ts = timestamps?.current ?? {};
+	const moviesElapsed = secs(ts.moviesStart, ts.showsStart ?? ts.endTime);
+	const showsElapsed  = secs(ts.showsStart,  ts.plexStart  ?? ts.endTime);
+	const plexElapsed   = secs(ts.plexStart,   ts.endTime);
 
 	return (
 		<div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
@@ -39,19 +50,34 @@ export default function UpdateModal({ updateStatus, updateLog, updateStats, logR
 					>
 						{updateStatus === "ok" ? t("update_done") : updateStatus === "error" ? t("update_failed") : t("updating")}
 					</span>
+					{noCache && !updateStatus && (
+						<span className="ml-auto text-xs text-amber-400">{t("update_no_cache_warn")}</span>
+					)}
 				</div>
 
 				{/* Stats pills */}
 				{Object.keys(updateStats).length > 0 && (
 					<div className="flex gap-2 flex-wrap">
 						{updateStats.movies != null && (
-							<span className="px-2.5 py-1 rounded-md bg-indigo-500/15 border border-indigo-800 text-indigo-300 text-xs font-medium">
-								{updateStats.movies} {t("update_stat_movies")}
+							<span className="px-2.5 py-1 rounded-md bg-indigo-500/15 border border-indigo-800 text-indigo-300 text-xs font-medium flex items-center gap-1.5">
+								<span>
+									{updateStats.moviesChecked != null
+										? `${updateStats.moviesChecked}/${updateStats.movies}`
+										: updateStats.movies}{" "}
+									{t("update_stat_movies")}
+								</span>
+								{moviesElapsed != null && <span className="text-indigo-500">{moviesElapsed}s</span>}
 							</span>
 						)}
 						{updateStats.shows != null && (
-							<span className="px-2.5 py-1 rounded-md bg-purple-500/15 border border-purple-800 text-purple-300 text-xs font-medium">
-								{updateStats.shows} {t("update_stat_shows")}
+							<span className="px-2.5 py-1 rounded-md bg-purple-500/15 border border-purple-800 text-purple-300 text-xs font-medium flex items-center gap-1.5">
+								<span>
+									{updateStats.seriesChecked != null
+										? `${updateStats.seriesChecked}/${updateStats.shows}`
+										: updateStats.shows}{" "}
+									{t("update_stat_shows")}
+								</span>
+								{showsElapsed != null && <span className="text-purple-500">{showsElapsed}s</span>}
 							</span>
 						)}
 						{updateStats.watchlist != null && (
@@ -60,8 +86,9 @@ export default function UpdateModal({ updateStatus, updateLog, updateStats, logR
 							</span>
 						)}
 						{updateStats.plexFiles != null && (
-							<span className="px-2.5 py-1 rounded-md bg-slate-500/15 border border-slate-700 text-slate-300 text-xs font-medium">
-								{updateStats.plexFiles.toLocaleString()} {t("update_stat_plex")}
+							<span className="px-2.5 py-1 rounded-md bg-slate-500/15 border border-slate-700 text-slate-300 text-xs font-medium flex items-center gap-1.5">
+								<span>{updateStats.plexFiles.toLocaleString()} {t("update_stat_plex")}</span>
+								{plexElapsed != null && <span className="text-slate-500">{plexElapsed}s</span>}
 							</span>
 						)}
 					</div>

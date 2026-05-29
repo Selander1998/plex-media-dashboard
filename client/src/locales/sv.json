@@ -200,6 +200,7 @@
 	"update_stat_shows": "Serier",
 	"update_stat_watchlist": "Watchlist",
 	"update_stat_plex": "Föremål indexerade",
+	"update_no_cache_warn": "Ingen cache — denna uppdatering tar längre tid än vanligt",
 	"clear_cache_title": "Rensa TMDB-cache",
 	"toast_cache_cleared": "TMDB-cache rensad",
 	"toast_cache_clear_failed": "Misslyckades rensa cache"

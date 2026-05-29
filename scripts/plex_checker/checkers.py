@@ -77,7 +77,8 @@ def check_movies(movies_roots, api_key, cache, blacklist):
 	not_found_on_tmdb = []
 	total_size = 0
 
-	for folder in all_folders:
+	total = len(all_folders)
+	for i, folder in enumerate(all_folders):
 		title, year = parse_name_year(folder.name)
 
 		movie = search_movie(title, year, api_key, cache)
@@ -106,6 +107,7 @@ def check_movies(movies_roots, api_key, cache, blacklist):
 		else:
 			not_found_on_tmdb.append({"folder": folder.name, "title": title, "year": year})
 			print(f"  [WARN] {folder.name} — not found on TMDB")
+		print(f"[PROGRESS] movies {i + 1}/{total}", flush=True)
 
 	print(f"\n  Pass 2/2: Checking collections for gaps...\n", flush=True)
 
@@ -218,7 +220,8 @@ def check_series(series_roots, api_key, cache, blacklist, series_filter=None):
 	total_size = 0
 	today = datetime.now().strftime("%Y-%m-%d")
 
-	for show_folder in all_show_folders:
+	total = len(all_show_folders)
+	for i, show_folder in enumerate(all_show_folders):
 		title, year = parse_name_year(show_folder.name)
 
 		if is_show_blacklisted(blacklist, title):
@@ -372,6 +375,7 @@ def check_series(series_roots, api_key, cache, blacklist, series_filter=None):
 					})
 				bl_note = f" ({blacklisted_count} blacklisted)" if blacklisted_count else ""
 				print(f"  ✗ {show_folder.name}  S{sn:02d}: missing ep {gap_filtered}{bl_note}")
+		print(f"[PROGRESS] series {i + 1}/{total}", flush=True)
 
 	return {
 		"total_shows": len(all_show_folders),

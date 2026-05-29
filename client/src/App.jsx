@@ -44,7 +44,7 @@ function AppContent() {
 
 	const { savePaths, savePathIdx, setSavePathIdx, diskSpace, totalDiskCapacity } = useSavePaths();
 
-	const { refreshing, updateStatus, updateLog, updateStats, logRef, handleRefresh, handleClose } = useUpdate({
+	const { refreshing, updateStatus, updateLog, updateStats, noCache, tick, timestamps, logRef, handleRefresh, handleClose } = useUpdate({
 		onSuccess: loadData,
 		onError: (msg) => pushToast(msg, true),
 	});
@@ -75,6 +75,9 @@ function AppContent() {
 					updateStatus={updateStatus}
 					updateLog={updateLog}
 					updateStats={updateStats}
+					noCache={noCache}
+					tick={tick}
+					timestamps={timestamps}
 					logRef={logRef}
 					onClose={handleClose}
 				/>
