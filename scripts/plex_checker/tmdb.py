@@ -2,6 +2,7 @@
 
 import time
 import difflib
+from datetime import date
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
@@ -83,7 +84,19 @@ def get_tv_details(tv_id, api_key, cache):
 
 
 def get_tv_season(tv_id, season_number, api_key, cache):
-	return tmdb_get(f"/tv/{tv_id}/season/{season_number}", {}, api_key, cache)
+	data = tmdb_get(f"/tv/{tv_id}/season/{season_number}", {}, api_key, cache)
+	if data:
+		today = date.today().isoformat()
+		has_upcoming = any(
+			ep.get("air_date", "") > today
+			for ep in data.get("episodes", [])
+			if ep.get("air_date")
+		)
+		if has_upcoming:
+			# Don't cache — fetch fresh every run so air date changes are always picked up
+			cache_key = f"/tv/{tv_id}/season/{season_number}" + str(sorted({}.items()))
+			cache.pop(cache_key, None)
+	return data
 
 
 def get_all_tv_episodes_flat(tv_id, total_seasons, api_key, cache):
