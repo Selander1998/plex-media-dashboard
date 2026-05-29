@@ -199,5 +199,8 @@
 	"update_stat_movies": "Movies",
 	"update_stat_shows": "Shows",
 	"update_stat_watchlist": "Watchlist",
-	"update_stat_plex": "Indexed in Plex"
+	"update_stat_plex": "Items indexed",
+	"clear_cache_title": "Clear TMDB cache",
+	"toast_cache_cleared": "TMDB cache cleared",
+	"toast_cache_clear_failed": "Failed to clear cache"
 }

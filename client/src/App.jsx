@@ -27,7 +27,12 @@ export default function App() {
 function AppContent() {
 	const [tab, setTab] = useState("torrents");
 	const [gitHash, setGitHash] = useState(null);
-	useEffect(() => { fetch("/api/version").then(r => r.json()).then(d => setGitHash(d.hash)).catch(() => {}); }, []);
+	useEffect(() => {
+		fetch("/api/version")
+			.then((r) => r.json())
+			.then((d) => setGitHash(d.hash))
+			.catch(() => {});
+	}, []);
 
 	const { toasts, pushToast } = useToasts();
 
@@ -156,9 +161,7 @@ function AppContent() {
 
 			<ToastList toasts={toasts} />
 			{gitHash && (
-				<span className="fixed bottom-2 right-3 text-xs text-white/20 select-none pointer-events-none">
-					{gitHash}
-				</span>
+				<span className="fixed bottom-2 right-3 text-xs text-white/20 select-none pointer-events-none">{gitHash}</span>
 			)}
 		</div>
 	);

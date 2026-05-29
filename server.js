@@ -1,5 +1,5 @@
 import express from "express";
-import { readFile, writeFile, statfs, stat } from "fs/promises";
+import { readFile, writeFile, statfs, stat, unlink } from "fs/promises";
 import { fileURLToPath } from "url";
 import { join, dirname } from "path";
 import { spawn, execSync } from "child_process";
@@ -29,6 +29,7 @@ const QBIT_PASSWORD = process.env.QBIT_PASSWORD || "adminadmin";
 const REPORT_PATH = process.env.REPORT_PATH || join(__dirname, "scripts", "report.json");
 const WATCHLIST_PATH = process.env.WATCHLIST_PATH || join(__dirname, "scripts", "watchlist.json");
 const PLEX_BLACKLIST_PATH = join(dirname(REPORT_PATH), "plex_blacklist.json");
+const TMDB_CACHE_PATH = join(dirname(REPORT_PATH), "plex_checker_cache.json");
 const PORT = process.env.PORT || 3000;
 const TORRENT_SAVE_PATHS = (process.env.TORRENT_SAVE_PATHS || "")
 	.split(",").map((p) => p.trim()).filter(Boolean);
@@ -494,6 +495,16 @@ setInterval(async () => {
 }, 30_000);
 
 app.get("/api/version", (_req, res) => res.json({ hash: GIT_HASH }));
+
+app.delete("/api/cache", async (_req, res) => {
+	try {
+		await unlink(TMDB_CACHE_PATH);
+		res.json({ ok: true });
+	} catch (e) {
+		if (e.code === "ENOENT") return res.json({ ok: true });
+		res.status(500).json({ error: e.message });
+	}
+});
 
 // Serve built frontend in production
 const clientDist = join(__dirname, "client", "dist");
