@@ -317,13 +317,16 @@ export default function Header({
 							</span>
 						)}
 
-						{tabDef.id === "watchlist" && watchlist && (
-							<span className={`text-[11px] px-1.5 py-px rounded-full min-w-5 text-center ${tab === tabDef.id ? "bg-indigo-500 text-white" : "bg-surface2 text-slate-400"}`}>
-								{watchlist?.items?.filter(
-									(i) => !blockedTitles.has(i.title.toLowerCase()) && diskStatus(i, report) !== "complete",
-								).length ?? 0}
-							</span>
-						)}
+						{tabDef.id === "watchlist" && watchlist && (() => {
+							const count = watchlist.items.filter(
+								(i) => !blockedTitles.has(i.title.toLowerCase()) && diskStatus(i, report) !== "complete",
+							).length;
+							return count > 0 ? (
+								<span className={`text-[11px] px-1.5 py-px rounded-full min-w-5 text-center ${tab === tabDef.id ? "bg-indigo-500 text-white" : "bg-surface2 text-slate-400"}`}>
+									{count}
+								</span>
+							) : null;
+						})()}
 						{tabDef.id === "watchlist" && newItems.watchlist.size > 0 && (
 							<span className="text-[11px] px-1.5 py-px rounded-full text-center bg-teal-900 text-teal-400">
 								+{newItems.watchlist.size}
