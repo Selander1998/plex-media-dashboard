@@ -11,9 +11,11 @@ export default function UpdateModal({ updateStatus, updateLog, updateStats, noCa
 	// tick is read to force re-renders for live timer; timestamps.current holds section start/end times
 	void tick;
 	const ts = timestamps?.current ?? {};
-	const moviesElapsed = secs(ts.moviesStart, ts.showsStart ?? ts.endTime);
-	const showsElapsed  = secs(ts.showsStart,  ts.plexStart  ?? ts.endTime);
-	const plexElapsed   = secs(ts.plexStart,   ts.endTime);
+	const totalElapsed     = secs(ts.updateStart,    ts.endTime);
+	const moviesElapsed    = secs(ts.moviesStart,    ts.showsStart     ?? ts.endTime);
+	const showsElapsed     = secs(ts.showsStart,     ts.plexStart      ?? ts.watchlistStart ?? ts.endTime);
+	const plexElapsed      = secs(ts.plexStart,      ts.watchlistStart ?? ts.endTime);
+	const watchlistElapsed = secs(ts.watchlistStart, ts.endTime);
 
 	return (
 		<div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
@@ -50,6 +52,9 @@ export default function UpdateModal({ updateStatus, updateLog, updateStats, noCa
 					>
 						{updateStatus === "ok" ? t("update_done") : updateStatus === "error" ? t("update_failed") : t("updating")}
 					</span>
+					{totalElapsed != null && (
+						<span className="text-xs text-slate-500">{totalElapsed}s</span>
+					)}
 					{noCache && !updateStatus && (
 						<span className="ml-auto text-xs text-amber-400">{t("update_no_cache_warn")}</span>
 					)}
@@ -81,8 +86,9 @@ export default function UpdateModal({ updateStatus, updateLog, updateStats, noCa
 							</span>
 						)}
 						{updateStats.watchlist != null && (
-							<span className="px-2.5 py-1 rounded-md bg-teal-500/15 border border-teal-800 text-teal-300 text-xs font-medium">
-								{updateStats.watchlist} {t("update_stat_watchlist")}
+							<span className="px-2.5 py-1 rounded-md bg-teal-500/15 border border-teal-800 text-teal-300 text-xs font-medium flex items-center gap-1.5">
+								<span>{updateStats.watchlist} {t("update_stat_watchlist")}</span>
+								{watchlistElapsed != null && <span className="text-teal-600">{watchlistElapsed}s</span>}
 							</span>
 						)}
 						{updateStats.plexFiles != null && (

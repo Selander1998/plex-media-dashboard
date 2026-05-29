@@ -35,7 +35,7 @@ export function useUpdate({ onSuccess, onError } = {}) {
 	async function handleRefresh() {
 		if (refreshing) return;
 		const cacheCheck = await fetch("/api/cache").then((r) => r.json()).catch(() => ({ exists: true }));
-		timestamps.current = {};
+		timestamps.current = { updateStart: Date.now() };
 		flushSync(() => {
 			setRefreshing(true);
 			setUpdateStatus(null);
@@ -78,6 +78,8 @@ export function useUpdate({ onSuccess, onError } = {}) {
 							timestamps.current.showsStart = Date.now();
 						if (!timestamps.current.plexStart && /Plex has \d+ files? indexed/i.test(line))
 							timestamps.current.plexStart = Date.now();
+						if (!timestamps.current.watchlistStart && /Running watchlist formatter/i.test(line))
+							timestamps.current.watchlistStart = Date.now();
 						if (shouldShowUpdateLine(line)) newLines.push(line);
 					}
 				}
