@@ -54,12 +54,19 @@ export default function Header({
 		}
 	}
 
+	const totalSize = (report?.movies?.total_size ?? 0) + (report?.series?.total_size ?? 0);
+	const hasStorage = report && (report.movies?.total_size || report.series?.total_size);
+
 	return (
 		<header className="bg-surface border-b border-border sticky top-0 z-10">
-			<div className="flex items-center gap-4 px-6 pt-3">
-				<h1 className="text-lg font-bold text-slate-200 tracking-tight">Plex Media Dashboard</h1>
+
+			{/* ── Main row ── */}
+			<div className="flex items-center gap-2 sm:gap-4 px-3 sm:px-6 pt-3">
+				<h1 className="text-base sm:text-lg font-bold text-slate-200 tracking-tight shrink-0">Plex Media Dashboard</h1>
+
+				{/* Report date — sm+ only */}
 				{report?.generated && (
-					<span className="text-xs text-slate-400">
+					<span className="hidden sm:inline text-xs text-slate-400 shrink-0">
 						{t("report")}{" "}
 						{new Date(report.generated).toLocaleString(locale, {
 							year: "numeric",
@@ -70,8 +77,10 @@ export default function Header({
 						})}
 					</span>
 				)}
-				{report && (report.movies?.total_size || report.series?.total_size) && (
-					<div className="ml-auto flex items-center gap-2 text-xs text-slate-400 mr-4">
+
+				{/* Storage stats — md+ only, ml-auto pushes actions to the right */}
+				{hasStorage && (
+					<div className="hidden md:flex ml-auto items-center gap-2 text-xs text-slate-400 mr-4">
 						{report.movies?.total_size > 0 && (
 							<span title={t("stat_movies_on_disk")}>
 								<span className="text-slate-500">{t("header_movies")}</span>{" "}
@@ -90,16 +99,17 @@ export default function Header({
 								<span className="text-slate-600">·</span>
 								<span>
 									<span className="text-slate-500">{t("header_total")}</span>{" "}
-									<span className="text-slate-200 font-medium">
-										{formatBytes((report.movies.total_size ?? 0) + (report.series.total_size ?? 0))}
-									</span>
+									<span className="text-slate-200 font-medium">{formatBytes(totalSize)}</span>
 									{totalDiskCapacity > 0 && <span className="text-slate-500"> / {formatBytes(totalDiskCapacity)}</span>}
 								</span>
 							</>
 						)}
 					</div>
 				)}
-				<div className="flex items-center gap-3">
+
+				{/* Action buttons — ml-auto on mobile (no storage row), md:ml-0 */}
+				<div className="flex items-center gap-2 sm:gap-3 ml-auto md:ml-0">
+
 					{/* Language toggle */}
 					<div className="flex items-center gap-1.5">
 						{availableLangs.map((l) => (
@@ -129,27 +139,25 @@ export default function Header({
 							title={`${t("saving_to")} ${savePaths[savePathIdx]}`}
 							className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
 						>
-							<svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+							<svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 20 20" fill="currentColor">
 								<path d="M2 6a2 2 0 012-2h12a2 2 0 012 2v2a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8H6a1 1 0 100 2h8a1 1 0 00.894-.553l1-2a1 1 0 00-.341-1.341zM2 14a2 2 0 012-2h12a2 2 0 012 2v2a2 2 0 01-2 2H4a2 2 0 01-2-2v-2z" />
 							</svg>
-							<span>
+							<span className="hidden sm:inline">
 								{t("saving_to")} {savePaths[savePathIdx].split("/").filter(Boolean)[1] ?? savePaths[savePathIdx]}
 							</span>
 							{diskSpace != null && (
-								<>
+								<span className="hidden sm:inline">
 									<span className="text-slate-500 mx-0.5">·</span>
-									<span>
-										{t("free")} {formatBytes(diskSpace.available)}
-									</span>
-								</>
+									{t("free")} {formatBytes(diskSpace.available)}
+								</span>
 							)}
 							{(() => {
 								const drive = savePaths[savePathIdx]?.split("/").filter(Boolean)[1];
 								const pending = drive && torrentStatsByDrive[drive];
 								return pending > 0 ? (
 									<>
-										<span className="text-slate-500 mx-0.5">·</span>
-										<span className="text-yellow-500">
+										<span className="text-slate-500 mx-0.5 hidden sm:inline">·</span>
+										<span className="text-yellow-500 hidden sm:inline">
 											{t("remaining")} {formatBytes(pending)}
 										</span>
 									</>
@@ -173,34 +181,24 @@ export default function Header({
 					>
 						{addStatus === "ok" ? (
 							<svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
-								<path
-									fillRule="evenodd"
-									d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-									clipRule="evenodd"
-								/>
+								<path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
 							</svg>
 						) : addStatus === "error" || addStatus === "invalid" ? (
 							<svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
-								<path
-									fillRule="evenodd"
-									d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-									clipRule="evenodd"
-								/>
+								<path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
 							</svg>
 						) : (
 							<svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
-								<path
-									fillRule="evenodd"
-									d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
-									clipRule="evenodd"
-								/>
+								<path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
 							</svg>
 						)}
-						{addStatus === "ok"
-							? t("torrent_added")
-							: addStatus === "error" || addStatus === "invalid"
-								? t("torrent_failed")
-								: t("add_torrent")}
+						<span className="hidden sm:inline">
+							{addStatus === "ok"
+								? t("torrent_added")
+								: addStatus === "error" || addStatus === "invalid"
+									? t("torrent_failed")
+									: t("add_torrent")}
+						</span>
 					</button>
 
 					{/* Clear TMDB cache */}
@@ -229,11 +227,7 @@ export default function Header({
 							className="cursor-pointer text-slate-500 hover:text-slate-300 transition-colors"
 						>
 							<svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
-								<path
-									fillRule="evenodd"
-									d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z"
-									clipRule="evenodd"
-								/>
+								<path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
 							</svg>
 						</button>
 					)}
@@ -252,22 +246,54 @@ export default function Header({
 						}`}
 					>
 						<svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
-							<path
-								fillRule="evenodd"
-								d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z"
-								clipRule="evenodd"
-							/>
+							<path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
 						</svg>
 					</button>
 				</div>
 			</div>
 
-			{/* Tab navigation */}
-			<nav className="flex px-6 mt-2">
+			{/* ── Mobile secondary row: report date + storage stats (md hidden) ── */}
+			{report && (
+				<div className="md:hidden px-3 pt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-slate-400">
+					{report.generated && (
+						<span>
+							{t("report")}{" "}
+							{new Date(report.generated).toLocaleString(locale, {
+								month: "2-digit",
+								day: "2-digit",
+								hour: "2-digit",
+								minute: "2-digit",
+							})}
+						</span>
+					)}
+					{report.movies?.total_size > 0 && (
+						<span>
+							<span className="text-slate-500">{t("header_movies")}</span>{" "}
+							<span className="text-slate-300">{formatBytes(report.movies.total_size)}</span>
+						</span>
+					)}
+					{report.series?.total_size > 0 && (
+						<span>
+							<span className="text-slate-500">{t("header_series")}</span>{" "}
+							<span className="text-slate-300">{formatBytes(report.series.total_size)}</span>
+						</span>
+					)}
+					{totalSize > 0 && (
+						<span>
+							<span className="text-slate-500">{t("header_total")}</span>{" "}
+							<span className="text-slate-200">{formatBytes(totalSize)}</span>
+							{totalDiskCapacity > 0 && <span className="text-slate-500"> / {formatBytes(totalDiskCapacity)}</span>}
+						</span>
+					)}
+				</div>
+			)}
+
+			{/* ── Tab navigation ── */}
+			<nav className="flex px-3 sm:px-6 mt-1 sm:mt-2 overflow-x-auto">
 				{TABS.map((tabDef) => (
 					<button
 						key={tabDef.id}
-						className={`flex items-center gap-1.5 px-4 py-2 border-b-2 text-sm cursor-pointer transition-colors bg-transparent ${
+						className={`shrink-0 whitespace-nowrap flex items-center gap-1.5 px-3 sm:px-4 py-2 border-b-2 text-sm cursor-pointer transition-colors bg-transparent ${
 							tab === tabDef.id ? "text-slate-200 border-indigo-500" : "text-slate-400 border-transparent hover:text-slate-200"
 						}`}
 						onClick={() => setTab(tabDef.id)}
@@ -275,21 +301,13 @@ export default function Header({
 						{t(tabDef.key)}
 
 						{tabDef.id === "torrents" && torrentCount !== null && (
-							<span
-								className={`text-[11px] px-1.5 py-px rounded-full min-w-5 text-center ${
-									tab === tabDef.id ? "bg-indigo-500 text-white" : "bg-surface2 text-slate-400"
-								}`}
-							>
+							<span className={`text-[11px] px-1.5 py-px rounded-full min-w-5 text-center ${tab === tabDef.id ? "bg-indigo-500 text-white" : "bg-surface2 text-slate-400"}`}>
 								{torrentCount}
 							</span>
 						)}
 
 						{tabDef.id === "missing_movies" && report && (
-							<span
-								className={`text-[11px] px-1.5 py-px rounded-full min-w-5 text-center ${
-									tab === tabDef.id ? "bg-indigo-500 text-white" : "bg-surface2 text-slate-400"
-								}`}
-							>
+							<span className={`text-[11px] px-1.5 py-px rounded-full min-w-5 text-center ${tab === tabDef.id ? "bg-indigo-500 text-white" : "bg-surface2 text-slate-400"}`}>
 								{report?.movies?.missing?.filter((m) => !blockedTitles.has(m.title.toLowerCase())).length ?? 0}
 							</span>
 						)}
@@ -300,11 +318,7 @@ export default function Header({
 						)}
 
 						{tabDef.id === "watchlist" && watchlist && (
-							<span
-								className={`text-[11px] px-1.5 py-px rounded-full min-w-5 text-center ${
-									tab === tabDef.id ? "bg-indigo-500 text-white" : "bg-surface2 text-slate-400"
-								}`}
-							>
+							<span className={`text-[11px] px-1.5 py-px rounded-full min-w-5 text-center ${tab === tabDef.id ? "bg-indigo-500 text-white" : "bg-surface2 text-slate-400"}`}>
 								{watchlist?.items?.filter(
 									(i) => !blockedTitles.has(i.title.toLowerCase()) && diskStatus(i, report) !== "complete",
 								).length ?? 0}
@@ -317,11 +331,7 @@ export default function Header({
 						)}
 
 						{tabDef.id === "missing_series" && report && (
-							<span
-								className={`text-[11px] px-1.5 py-px rounded-full min-w-5 text-center ${
-									tab === tabDef.id ? "bg-indigo-500 text-white" : "bg-surface2 text-slate-400"
-								}`}
-							>
+							<span className={`text-[11px] px-1.5 py-px rounded-full min-w-5 text-center ${tab === tabDef.id ? "bg-indigo-500 text-white" : "bg-surface2 text-slate-400"}`}>
 								{report?.series?.missing?.length ?? 0}
 							</span>
 						)}
@@ -343,9 +353,7 @@ export default function Header({
 									(report.series?.not_found_on_tmdb?.length ?? 0) +
 									(report.plex_sync?.not_indexed?.length ?? 0);
 								return count > 0 ? (
-									<span
-										className={`text-[11px] px-1.5 py-px rounded-full min-w-5 text-center ${tab === tabDef.id ? "bg-indigo-500 text-white" : "bg-surface2 text-slate-400"}`}
-									>
+									<span className={`text-[11px] px-1.5 py-px rounded-full min-w-5 text-center ${tab === tabDef.id ? "bg-indigo-500 text-white" : "bg-surface2 text-slate-400"}`}>
 										{count}
 									</span>
 								) : null;

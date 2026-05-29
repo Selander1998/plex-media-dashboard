@@ -105,7 +105,7 @@ function AppContent() {
 				onToast={pushToast}
 			/>
 
-			<main className="flex-1 p-6 max-w-350 w-full mx-auto">
+			<main className="flex-1 p-3 sm:p-6 max-w-350 w-full mx-auto">
 				{tab === "torrents" && (
 					<Torrents
 						torrents={torrents}

@@ -160,16 +160,16 @@ export default function Torrents({ torrents, transfer, loading, error, onRefresh
 	const [expandedGroups, setExpandedGroups] = useState(new Set());
 
 	const COLUMNS = [
-		{ label: tr("col_name"), key: "name", defaultDir: "asc" },
-		{ label: tr("col_size"), key: "size", defaultDir: "desc" },
-		{ label: tr("col_progress"), key: "progress", defaultDir: "desc" },
-		{ label: tr("col_status"), key: null },
-		{ label: tr("col_down"), key: "dlspeed", defaultDir: "desc" },
-		{ label: tr("col_up"), key: "upspeed", defaultDir: "desc" },
-		{ label: tr("col_eta"), key: "eta", defaultDir: "asc" },
-		{ label: tr("col_added"), key: "added_on", defaultDir: "desc" },
-		{ label: tr("col_disk"), key: null },
-		{ label: "", key: null },
+		{ label: tr("col_name"),     key: "name",     defaultDir: "asc",  cls: "" },
+		{ label: tr("col_size"),     key: "size",     defaultDir: "desc", cls: "hidden sm:table-cell" },
+		{ label: tr("col_progress"), key: "progress", defaultDir: "desc", cls: "" },
+		{ label: tr("col_status"),   key: null,                           cls: "" },
+		{ label: tr("col_down"),     key: "dlspeed",  defaultDir: "desc", cls: "hidden sm:table-cell" },
+		{ label: tr("col_up"),       key: "upspeed",  defaultDir: "desc", cls: "hidden md:table-cell" },
+		{ label: tr("col_eta"),      key: "eta",      defaultDir: "asc",  cls: "hidden lg:table-cell" },
+		{ label: tr("col_added"),    key: "added_on", defaultDir: "desc", cls: "hidden lg:table-cell" },
+		{ label: tr("col_disk"),     key: null,                           cls: "hidden lg:table-cell" },
+		{ label: "",                 key: null,                           cls: "" },
 	];
 
 	const filters = [
@@ -381,7 +381,7 @@ export default function Torrents({ torrents, transfer, loading, error, onRefresh
 			)}
 
 			{transfer && (
-				<div className="bg-surface border border-border rounded-lg px-4 py-3 mb-4 flex flex-col gap-2.5">
+				<div className="bg-surface border border-border rounded-lg px-3 sm:px-4 py-3 mb-4 flex flex-col gap-2.5">
 					<SpeedSlider
 						label="↓"
 						limitBytes={transfer.dl_rate_limit}
@@ -403,20 +403,20 @@ export default function Torrents({ torrents, transfer, loading, error, onRefresh
 				</div>
 			)}
 
-			<div className="flex gap-2.5 mb-4 flex-wrap items-center">
+			<div className="flex gap-2 mb-4 items-center flex-wrap">
 				<input
 					type="text"
 					placeholder={tr("search_torrents")}
 					value={search}
 					onChange={(e) => setSearch(e.target.value)}
-					className="bg-surface border border-border rounded-md px-3 py-1.5 text-slate-200 text-[13px] flex-[1_1_200px] min-w-0 outline-none focus:border-indigo-500 transition-colors"
+					className="bg-surface border border-border rounded-md px-3 py-1.5 text-slate-200 text-[13px] flex-[1_1_160px] min-w-0 outline-none focus:border-indigo-500 transition-colors"
 				/>
-				<div className="flex gap-1">
+				<div className="flex gap-1 overflow-x-auto shrink-0">
 					{filters.map((f) => (
 						<button
 							key={f.value}
 							onClick={() => setFilter(f.value)}
-							className={`px-3 py-1.5 rounded-md border text-xs cursor-pointer transition-colors ${
+							className={`shrink-0 px-3 py-1.5 rounded-md border text-xs cursor-pointer transition-colors ${
 								filter === f.value
 									? "bg-indigo-500 border-indigo-500 text-white"
 									: "bg-surface border-border text-slate-400 hover:text-slate-200"
@@ -428,15 +428,13 @@ export default function Torrents({ torrents, transfer, loading, error, onRefresh
 				<button
 					onClick={toggleAutoPause}
 					title={tr("auto_pause_title")}
-					className={`ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-xs cursor-pointer transition-colors ${
+					className={`ml-auto shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-xs cursor-pointer transition-colors ${
 						autoPause
 							? "bg-green-500/15 border-green-600 text-green-400"
 							: "bg-surface border-border text-slate-400 hover:text-slate-200"
 					}`}>
-					<span
-						className={`w-1.5 h-1.5 rounded-full ${autoPause ? "bg-green-400" : "bg-slate-600"}`}
-					/>
-					{tr("auto_pause_btn")}
+					<span className={`w-1.5 h-1.5 rounded-full ${autoPause ? "bg-green-400" : "bg-slate-600"}`} />
+					<span className="hidden sm:inline">{tr("auto_pause_btn")}</span>
 				</button>
 			</div>
 
@@ -447,11 +445,11 @@ export default function Torrents({ torrents, transfer, loading, error, onRefresh
 					<table className="w-full border-collapse">
 						<thead className="border-b border-border">
 							<tr>
-								{COLUMNS.map(({ label, key, defaultDir }) => (
+								{COLUMNS.map(({ label, key, defaultDir, cls }) => (
 									<th
 										key={label}
 										onClick={() => handleSort(key, defaultDir)}
-										className={`text-left text-[11px] font-semibold uppercase tracking-[0.5px] px-3 py-2 select-none ${
+										className={`text-left text-[11px] font-semibold uppercase tracking-[0.5px] px-3 py-2 select-none ${cls} ${
 											key
 												? "cursor-pointer text-slate-400 hover:text-slate-200 transition-colors"
 												: "text-slate-400"
@@ -503,10 +501,10 @@ export default function Torrents({ torrents, transfer, loading, error, onRefresh
 															</span>
 														</div>
 													</td>
-													<td className="px-3 py-2 text-slate-400 text-[13px]">
+													<td className="px-3 py-2 text-slate-400 text-[13px] hidden sm:table-cell">
 														{formatBytes(totalSize)}
 													</td>
-													<td className="px-3 py-2 text-[13px] min-w-25">
+													<td className="px-3 py-2 text-[13px] min-w-20 sm:min-w-25">
 														<div className="flex items-center gap-2">
 															<span className="text-xs text-slate-400 w-8.5">{groupPct}%</span>
 															<div className="h-1 rounded-sm bg-surface overflow-hidden flex-1">
@@ -517,16 +515,18 @@ export default function Torrents({ torrents, transfer, loading, error, onRefresh
 															</div>
 														</div>
 													</td>
-													<td className="px-3 py-2 text-slate-500 text-[13px]" colSpan={3}>
+													<td className="px-3 py-2 text-slate-500 text-[13px]">
 														{groupDl > 0 && (
 															<span className="text-blue-500 mr-3">{formatSpeed(groupDl)}</span>
 														)}
 														{groupUl > 0 && (
-															<span className="text-green-500">{formatSpeed(groupUl)}</span>
+															<span className="text-green-500 hidden md:inline">{formatSpeed(groupUl)}</span>
 														)}
 													</td>
-													<td className="px-3 py-2 text-slate-500 text-[13px]" />
-													<td className="px-3 py-2 text-slate-500 text-[12px]">
+													<td className="px-3 py-2 hidden md:table-cell" />
+													<td className="px-3 py-2 hidden lg:table-cell" />
+													<td className="px-3 py-2 hidden lg:table-cell" />
+													<td className="px-3 py-2 text-slate-500 text-[12px] hidden lg:table-cell">
 														{sameDrive ? drive : "—"}
 													</td>
 													<td className="px-3 py-2" />
@@ -553,7 +553,7 @@ export default function Torrents({ torrents, transfer, loading, error, onRefresh
 														<tr
 															className="group cursor-pointer"
 															onClick={() => setExpandedHash(isExpanded ? null : t.hash)}>
-															<td className="px-3 py-2.5 text-slate-200 text-[13px] max-w-80 wrap-break-word group-hover:bg-surface2">
+															<td className="px-3 py-2.5 text-slate-200 text-[13px] max-w-48 sm:max-w-80 wrap-break-word group-hover:bg-surface2">
 																{renamingHash === t.hash ? (
 																	<input
 																		autoFocus
@@ -572,10 +572,10 @@ export default function Torrents({ torrents, transfer, loading, error, onRefresh
 																	t.name
 																)}
 															</td>
-															<td className="px-3 py-2.5 text-slate-400 text-[13px] group-hover:bg-surface2">
+															<td className="px-3 py-2.5 text-slate-400 text-[13px] group-hover:bg-surface2 hidden sm:table-cell">
 																{formatBytes(t.size)}
 															</td>
-															<td className="px-3 py-2.5 text-[13px] min-w-25 group-hover:bg-surface2">
+															<td className="px-3 py-2.5 text-[13px] min-w-20 sm:min-w-25 group-hover:bg-surface2">
 																<div className="flex items-center gap-2">
 																	<span className="text-xs text-slate-400 w-8.5">{pct}%</span>
 																	<div className="h-1 rounded-sm bg-surface2 overflow-hidden flex-1">
@@ -592,27 +592,27 @@ export default function Torrents({ torrents, transfer, loading, error, onRefresh
 																/>
 																{stateLabel}
 															</td>
-															<td className="px-3 py-2.5 text-blue-500 text-[13px] group-hover:bg-surface2">
+															<td className="px-3 py-2.5 text-blue-500 text-[13px] group-hover:bg-surface2 hidden sm:table-cell">
 																{t.dlspeed > 0 ? (
 																	formatSpeed(t.dlspeed)
 																) : (
 																	<span className="text-slate-400">—</span>
 																)}
 															</td>
-															<td className="px-3 py-2.5 text-green-500 text-[13px] group-hover:bg-surface2">
+															<td className="px-3 py-2.5 text-green-500 text-[13px] group-hover:bg-surface2 hidden md:table-cell">
 																{t.upspeed > 0 ? (
 																	formatSpeed(t.upspeed)
 																) : (
 																	<span className="text-slate-400">—</span>
 																)}
 															</td>
-															<td className="px-3 py-2.5 text-slate-400 text-[13px] group-hover:bg-surface2">
+															<td className="px-3 py-2.5 text-slate-400 text-[13px] group-hover:bg-surface2 hidden lg:table-cell">
 																{done ? "—" : formatEta(t.eta)}
 															</td>
-															<td className="px-3 py-2.5 text-slate-400 text-[13px] group-hover:bg-surface2 whitespace-nowrap">
+															<td className="px-3 py-2.5 text-slate-400 text-[13px] group-hover:bg-surface2 whitespace-nowrap hidden lg:table-cell">
 																{t.added_on ? formatAddedDate(t.added_on, tr, lang) : "—"}
 															</td>
-															<td className="px-3 py-2.5 text-slate-500 text-[12px] group-hover:bg-surface2 whitespace-nowrap">
+															<td className="px-3 py-2.5 text-slate-500 text-[12px] group-hover:bg-surface2 whitespace-nowrap hidden lg:table-cell">
 																{t.save_path
 																	? (t.save_path.split("/").filter(Boolean)[1] ?? "—")
 																	: "—"}
@@ -667,8 +667,8 @@ export default function Torrents({ torrents, transfer, loading, error, onRefresh
 															<tr>
 																<td
 																	colSpan={10}
-																	className="bg-surface2 border-b border-border px-4 py-3">
-																	<div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-[12px]">
+																	className="bg-surface2 border-b border-border px-3 sm:px-4 py-3">
+																	<div className="grid grid-cols-[auto_1fr] gap-x-3 sm:gap-x-4 gap-y-1.5 text-[12px]">
 																		<span className="text-slate-500">{tr("saved_in")}</span>
 																		<span className="text-slate-300 font-mono break-all">
 																			{t.save_path}
