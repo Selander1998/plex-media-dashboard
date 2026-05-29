@@ -2,7 +2,7 @@ import express from "express";
 import { readFile, writeFile, statfs, stat } from "fs/promises";
 import { fileURLToPath } from "url";
 import { join, dirname } from "path";
-import { spawn } from "child_process";
+import { spawn, execSync } from "child_process";
 
 const app = express();
 app.use(express.json());
@@ -34,6 +34,11 @@ const TORRENT_SAVE_PATHS = (process.env.TORRENT_SAVE_PATHS || "")
 	.split(",").map((p) => p.trim()).filter(Boolean);
 const PLEX_URL = process.env.PLEX_URL || "";
 const PLEX_TOKEN = process.env.PLEX_TOKEN || "";
+
+const GIT_HASH = (() => {
+	try { return execSync("git rev-parse --short HEAD", { encoding: "utf8" }).trim(); }
+	catch { return "unknown"; }
+})();
 
 async function refreshPlexLibraries() {
 	if (!PLEX_URL || !PLEX_TOKEN) return;
@@ -487,6 +492,8 @@ setInterval(async () => {
 		console.error("[auto-pause] error:", e.message);
 	}
 }, 30_000);
+
+app.get("/api/version", (_req, res) => res.json({ hash: GIT_HASH }));
 
 // Serve built frontend in production
 const clientDist = join(__dirname, "client", "dist");
