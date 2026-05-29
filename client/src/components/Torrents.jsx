@@ -120,9 +120,9 @@ function SpeedSlider({ label, limitBytes, endpoint, colorClass, accentClass, cur
 	}
 
 	return (
-		<div className="flex items-center gap-3 min-w-0">
+		<div className="flex items-center gap-2 sm:gap-3 min-w-0">
 			<span className={`text-base leading-none w-4 shrink-0 ${colorClass}`}>{label}</span>
-			<span className="text-xs text-slate-200 w-24 shrink-0 tabular-nums">
+			<span className="text-xs text-slate-200 w-14 sm:w-24 shrink-0 tabular-nums">
 				{currentSpeed != null ? formatSpeed(currentSpeed) : "—"}
 			</span>
 			<input
@@ -132,10 +132,10 @@ function SpeedSlider({ label, limitBytes, endpoint, colorClass, accentClass, cur
 				step={256}
 				value={kbps}
 				onChange={handleChange}
-				className={`flex-1 h-1 cursor-pointer ${accentClass}`}
+				className={`flex-1 min-w-0 h-1 cursor-pointer ${accentClass}`}
 				onPointerUp={handleRelease}
 			/>
-			<span className="text-xs text-slate-500 w-24 text-right shrink-0 tabular-nums">
+			<span className="text-xs text-slate-500 w-14 sm:w-24 text-right shrink-0 tabular-nums">
 				{formatKbps(kbps, tr)}
 			</span>
 		</div>
@@ -403,15 +403,28 @@ export default function Torrents({ torrents, transfer, loading, error, onRefresh
 				</div>
 			)}
 
-			<div className="flex gap-2 mb-4 items-center flex-wrap">
-				<input
-					type="text"
-					placeholder={tr("search_torrents")}
-					value={search}
-					onChange={(e) => setSearch(e.target.value)}
-					className="bg-surface border border-border rounded-md px-3 py-1.5 text-slate-200 text-[13px] flex-[1_1_160px] min-w-0 outline-none focus:border-indigo-500 transition-colors"
-				/>
-				<div className="flex gap-1 overflow-x-auto shrink-0">
+			<div className="mb-4 flex flex-col gap-2">
+				<div className="flex gap-2 items-center">
+					<input
+						type="text"
+						placeholder={tr("search_torrents")}
+						value={search}
+						onChange={(e) => setSearch(e.target.value)}
+						className="bg-surface border border-border rounded-md px-3 py-1.5 text-slate-200 text-[13px] flex-1 min-w-0 outline-none focus:border-indigo-500 transition-colors"
+					/>
+					<button
+						onClick={toggleAutoPause}
+						title={tr("auto_pause_title")}
+						className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-xs cursor-pointer transition-colors ${
+							autoPause
+								? "bg-green-500/15 border-green-600 text-green-400"
+								: "bg-surface border-border text-slate-400 hover:text-slate-200"
+						}`}>
+						<span className={`w-1.5 h-1.5 rounded-full ${autoPause ? "bg-green-400" : "bg-slate-600"}`} />
+						<span className="hidden sm:inline">{tr("auto_pause_btn")}</span>
+					</button>
+				</div>
+				<div className="flex gap-1 w-full overflow-x-auto">
 					{filters.map((f) => (
 						<button
 							key={f.value}
@@ -425,17 +438,6 @@ export default function Torrents({ torrents, transfer, loading, error, onRefresh
 						</button>
 					))}
 				</div>
-				<button
-					onClick={toggleAutoPause}
-					title={tr("auto_pause_title")}
-					className={`ml-auto shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-xs cursor-pointer transition-colors ${
-						autoPause
-							? "bg-green-500/15 border-green-600 text-green-400"
-							: "bg-surface border-border text-slate-400 hover:text-slate-200"
-					}`}>
-					<span className={`w-1.5 h-1.5 rounded-full ${autoPause ? "bg-green-400" : "bg-slate-600"}`} />
-					<span className="hidden sm:inline">{tr("auto_pause_btn")}</span>
-				</button>
 			</div>
 
 			{filtered.length === 0 ? (
