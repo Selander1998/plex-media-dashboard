@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 
 export function useSavePaths() {
 	const [savePaths, setSavePaths] = useState([]);
+	const [tempPaths, setTempPaths] = useState([]);
 	const [savePathIdx, setSavePathIdx] = useState(() => parseInt(localStorage.getItem("savePathIdx") ?? "0", 10) || 0);
 	const [diskSpace, setDiskSpace] = useState(null);
 	const [totalDiskCapacity, setTotalDiskCapacity] = useState(null);
@@ -10,6 +11,10 @@ export function useSavePaths() {
 		fetch("/api/qbit/save-paths")
 			.then((r) => r.json())
 			.then((d) => Array.isArray(d) && d.length > 0 && setSavePaths(d))
+			.catch(() => {});
+		fetch("/api/qbit/temp-paths")
+			.then((r) => r.json())
+			.then((d) => Array.isArray(d) && setTempPaths(d))
 			.catch(() => {});
 	}, []);
 
@@ -43,5 +48,5 @@ export function useSavePaths() {
 		});
 	}, [savePaths]);
 
-	return { savePaths, savePathIdx, setSavePathIdx, diskSpace, totalDiskCapacity };
+	return { savePaths, tempPaths, savePathIdx, setSavePathIdx, diskSpace, totalDiskCapacity };
 }

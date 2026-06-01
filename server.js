@@ -33,6 +33,7 @@ const TMDB_CACHE_PATH = join(dirname(REPORT_PATH), "plex_checker_cache.json");
 const PORT = process.env.PORT || 3000;
 const TORRENT_SAVE_PATHS = (process.env.TORRENT_SAVE_PATHS || "")
 	.split(",").map((p) => p.trim()).filter(Boolean);
+const TORRENT_TEMP_SUBDIR = process.env.TORRENT_TEMP_SUBDIR || "";
 const PLEX_URL = process.env.PLEX_URL || "";
 const PLEX_TOKEN = process.env.PLEX_TOKEN || "";
 
@@ -172,6 +173,28 @@ async function qbitFetch(path, options = {}) {
 
 app.get("/api/qbit/save-paths", (req, res) => {
 	res.json(TORRENT_SAVE_PATHS);
+});
+
+app.get("/api/qbit/temp-paths", (req, res) => {
+	if (!TORRENT_TEMP_SUBDIR) return res.json([]);
+	res.json(TORRENT_SAVE_PATHS.map(p => `${p.replace(/\/$/, "")}/${TORRENT_TEMP_SUBDIR}`));
+});
+
+app.post("/api/qbit/temp-path", async (req, res) => {
+	const { path } = req.body;
+	try {
+		const prefs = path
+			? { temp_path_enabled: true, temp_path: path }
+			: { temp_path_enabled: false };
+		await qbitFetch("/api/v2/app/setPreferences", {
+			method: "POST",
+			headers: { "Content-Type": "application/x-www-form-urlencoded" },
+			body: new URLSearchParams({ json: JSON.stringify(prefs) }),
+		});
+		res.json({ ok: true });
+	} catch (err) {
+		res.status(500).json({ error: "Failed to set temp path", detail: err.message });
+	}
 });
 
 app.get("/api/disk-space", async (req, res) => {

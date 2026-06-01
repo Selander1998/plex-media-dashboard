@@ -42,7 +42,7 @@ function AppContent() {
 	const { torrents, transfer, torrentCount, torrentLoading, torrentError, torrentStatsByDrive, fetchTorrents } =
 		useTorrents();
 
-	const { savePaths, savePathIdx, setSavePathIdx, diskSpace, totalDiskCapacity } = useSavePaths();
+	const { savePaths, tempPaths, savePathIdx, setSavePathIdx, diskSpace, totalDiskCapacity } = useSavePaths();
 
 	const { refreshing, updateStatus, updateLog, updateStats, noCache, tick, timestamps, logRef, handleRefresh, handleClose } = useUpdate({
 		onSuccess: loadData,
@@ -92,6 +92,7 @@ function AppContent() {
 				watchlist={watchlist}
 				blockedTitles={blockedTitles}
 				savePaths={savePaths}
+				tempPaths={tempPaths}
 				savePathIdx={savePathIdx}
 				setSavePathIdx={setSavePathIdx}
 				diskSpace={diskSpace}

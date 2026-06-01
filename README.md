@@ -60,12 +60,13 @@ cp .env.example .env
 | `QBIT_PASSWORD`      | qBittorrent password                                                     |
 | `PORT`               | Port the dashboard runs on (default `3000`)                              |
 | `TORRENT_SAVE_PATHS` | Comma-separated paths qBittorrent saves to — used for disk space display |
+| `TORRENT_TEMP_SUBDIR` | Subfolder name used as qBittorrent's incomplete-download temp folder (e.g. `temp`). When set, switching drives in the dashboard also updates qBittorrent's temp path to `{savePath}/{TORRENT_TEMP_SUBDIR}`. Requires the folder to exist on each drive. |
 | `REPORT_PATH`        | Absolute path to `scripts/report.json`                                   |
 | `WATCHLIST_PATH`     | Absolute path to `scripts/watchlist.json`                                |
 | `PLEX_URL`           | Plex server URL, e.g. `http://192.168.1.10:32400` (optional)             |
 | `PLEX_TOKEN`         | Plex auth token (optional)                                               |
 | `PLEX_SCAN_WAIT`     | Seconds to wait after triggering a Plex scan before checking the index (default: `15`) |
-| `DASHBOARD_TOKEN`    | If set, enables HTTP Basic Auth on the dashboard (optional)              |
+| `DASHBOARD_TOKEN`    | If set, enables authentication on the dashboard (optional)               |
 
 > **Exposing the dashboard outside your LAN?** Set `DASHBOARD_TOKEN` to a strong password. The browser will prompt once per session and cache the credentials automatically — no login page required.
 

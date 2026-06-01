@@ -22,6 +22,7 @@ export default function Header({
 	watchlist,
 	blockedTitles,
 	savePaths,
+	tempPaths,
 	savePathIdx,
 	setSavePathIdx,
 	diskSpace,
@@ -135,6 +136,14 @@ export default function Header({
 								localStorage.setItem("savePathIdx", next);
 								const name = savePaths[next].split("/").filter(Boolean)[1] ?? savePaths[next];
 								onToast(t("toast_saving_to", { name }));
+								const temp = tempPaths[next];
+								if (tempPaths.length > 0) {
+									fetch("/api/qbit/temp-path", {
+										method: "POST",
+										headers: { "Content-Type": "application/json" },
+										body: JSON.stringify({ path: temp || null }),
+									});
+								}
 							}}
 							title={`${t("saving_to")} ${savePaths[savePathIdx]}`}
 							className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
