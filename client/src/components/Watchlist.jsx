@@ -189,16 +189,14 @@ function WatchlistCard({
 							{t("badge_incomplete")}
 						</span>
 					)}
-					{matchedTorrents.map((tor) => {
-						const { label, cls } = torrentBadgeProps(tor, t);
-						return (
-							<span
-								key={tor.hash}
-								className={`px-1.5 py-0.5 rounded border text-[10px] font-medium ${cls}`}>
-								{label}
-							</span>
-						);
-					})}
+					{[...new Map(matchedTorrents.map(tor => {
+						const badge = torrentBadgeProps(tor, t);
+						return [badge.label, badge];
+					})).values()].map(({ label, cls }) => (
+						<span key={label} className={`px-1.5 py-0.5 rounded border text-[10px] font-medium ${cls}`}>
+							{label}
+						</span>
+					))}
 					{isNew && (
 						<span className="px-1.5 py-0.5 rounded border text-[10px] font-medium text-teal-400 border-teal-800 bg-teal-950/40">
 							{t("badge_new")}
