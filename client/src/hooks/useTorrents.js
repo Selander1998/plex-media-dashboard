@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 
-export function useTorrents() {
+export function useTorrents(refreshInterval = 5000) {
 	const [torrents, setTorrents] = useState([]);
 	const [transfer, setTransfer] = useState(null);
 	const [torrentCount, setTorrentCount] = useState(null);
@@ -33,9 +33,9 @@ export function useTorrents() {
 
 	useEffect(() => {
 		fetchTorrents();
-		const id = setInterval(fetchTorrents, 5000);
+		const id = setInterval(fetchTorrents, refreshInterval);
 		return () => clearInterval(id);
-	}, [fetchTorrents]);
+	}, [fetchTorrents, refreshInterval]);
 
 	return {
 		torrents,

@@ -203,5 +203,11 @@
 	"update_no_cache_warn": "No cache — this run will take longer than usual",
 	"clear_cache_title": "Clear TMDB cache",
 	"toast_cache_cleared": "TMDB cache cleared",
-	"toast_cache_clear_failed": "Failed to clear cache"
+	"toast_cache_clear_failed": "Failed to clear cache",
+	"settings_title": "Settings",
+	"settings_language": "Language",
+	"settings_refresh": "Torrent refresh interval",
+	"notif_title": "Notifications",
+	"notif_empty": "No notifications yet",
+	"notif_clear": "Clear all"
 }

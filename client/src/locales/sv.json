@@ -203,5 +203,11 @@
 	"update_no_cache_warn": "Ingen cache — denna uppdatering tar längre tid än vanligt",
 	"clear_cache_title": "Rensa TMDB-cache",
 	"toast_cache_cleared": "TMDB-cache rensad",
-	"toast_cache_clear_failed": "Misslyckades rensa cache"
+	"toast_cache_clear_failed": "Misslyckades rensa cache",
+	"settings_title": "Inställningar",
+	"settings_language": "Språk",
+	"settings_refresh": "Uppdateringsintervall för torrents",
+	"notif_title": "Notifikationer",
+	"notif_empty": "Inga notifikationer än",
+	"notif_clear": "Rensa alla"
 }

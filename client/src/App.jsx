@@ -15,6 +15,7 @@ import { useTorrents } from "./hooks/useTorrents.js";
 import { useSavePaths } from "./hooks/useSavePaths.js";
 import { useUpdate } from "./hooks/useUpdate.js";
 import { useMagnet } from "./hooks/useMagnet.js";
+import { useSettings } from "./hooks/useSettings.js";
 
 export default function App() {
 	return (
@@ -34,13 +35,14 @@ function AppContent() {
 			.catch(() => {});
 	}, []);
 
-	const { toasts, pushToast } = useToasts();
+	const { settings, updateSetting } = useSettings();
+	const { toasts, history: notifHistory, unread: notifUnread, pushToast, clearUnread: onNotifRead, clearHistory: onNotifClear } = useToasts();
 
 	const { report, reportError, watchlist, watchlistError, blockedTitles, setBlockedTitles, newItems, loadData } =
 		useMediaData();
 
 	const { torrents, transfer, torrentCount, torrentLoading, torrentError, torrentStatsByDrive, fetchTorrents } =
-		useTorrents();
+		useTorrents(settings.torrentRefreshInterval);
 
 	const { savePaths, tempPaths, savePathIdx, setSavePathIdx, diskSpace, totalDiskCapacity } = useSavePaths();
 
@@ -104,6 +106,12 @@ function AppContent() {
 				updateStatus={updateStatus}
 				onRefresh={handleRefresh}
 				onToast={pushToast}
+				settings={settings}
+				updateSetting={updateSetting}
+				notifHistory={notifHistory}
+				notifUnread={notifUnread}
+				onNotifRead={onNotifRead}
+				onNotifClear={onNotifClear}
 			/>
 
 			<main className="flex-1 p-3 sm:p-6 max-w-350 w-full mx-auto">
