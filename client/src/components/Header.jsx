@@ -132,39 +132,6 @@ export default function Header({
 				{/* Action buttons — ml-auto on mobile (no storage row), md:ml-0 */}
 				<div className="flex items-center gap-2 sm:gap-3 ml-auto md:ml-0">
 
-					{/* Notifications */}
-					<div ref={notifsRef} className="relative">
-						<button
-							onClick={() => { setNotifsOpen((o) => !o); if (!notifsOpen) onNotifRead(); }}
-							className="relative cursor-pointer text-slate-500 hover:text-slate-300 transition-colors"
-							title={t("notif_title")}
-						>
-							<svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
-								<path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zm0 16a2 2 0 01-2-2h4a2 2 0 01-2 2z" />
-							</svg>
-							{notifUnread > 0 && (
-								<span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-indigo-500 rounded-full text-[9px] text-white flex items-center justify-center leading-none">
-									{notifUnread > 9 ? "9+" : notifUnread}
-								</span>
-							)}
-						</button>
-						{notifsOpen && <NotificationsPanel history={notifHistory} onClear={onNotifClear} />}
-					</div>
-
-					{/* Settings */}
-					<div ref={settingsRef} className="relative">
-						<button
-							onClick={() => setSettingsOpen((o) => !o)}
-							className="cursor-pointer text-slate-500 hover:text-slate-300 transition-colors"
-							title={t("settings_title")}
-						>
-							<svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
-								<path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
-							</svg>
-						</button>
-						{settingsOpen && <SettingsPanel settings={settings} updateSetting={updateSetting} />}
-					</div>
-
 					{/* Save path + disk space */}
 					{savePaths.length > 1 && (
 						<button
@@ -296,6 +263,39 @@ export default function Header({
 							<path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
 						</svg>
 					</button>
+
+					{/* Notifications */}
+					<div ref={notifsRef} className="relative">
+						<button
+							onClick={() => { setNotifsOpen((o) => !o); if (!notifsOpen) onNotifRead(); }}
+							className="relative cursor-pointer text-slate-500 hover:text-slate-300 transition-colors"
+							title={t("notif_title")}
+						>
+							<svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+								<path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zm0 16a2 2 0 01-2-2h4a2 2 0 01-2 2z" />
+							</svg>
+							{notifUnread > 0 && (
+								<span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-indigo-500 rounded-full text-[9px] text-white flex items-center justify-center leading-none">
+									{notifUnread > 9 ? "9+" : notifUnread}
+								</span>
+							)}
+						</button>
+						{notifsOpen && <NotificationsPanel history={notifHistory} onClear={onNotifClear} />}
+					</div>
+
+					{/* Settings */}
+					<div ref={settingsRef} className="relative">
+						<button
+							onClick={() => setSettingsOpen((o) => !o)}
+							className="cursor-pointer text-slate-500 hover:text-slate-300 transition-colors"
+							title={t("settings_title")}
+						>
+							<svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+								<path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
+							</svg>
+						</button>
+						{settingsOpen && <SettingsPanel settings={settings} updateSetting={updateSetting} />}
+					</div>
 				</div>
 			</div>
 
