@@ -67,6 +67,9 @@ cp .env.example .env
 | `PLEX_TOKEN`         | Plex auth token (optional)                                               |
 | `PLEX_SCAN_WAIT`     | Seconds to wait after triggering a Plex scan before checking the index (default: `15`) |
 | `DASHBOARD_TOKEN`    | If set, enables authentication on the dashboard (optional)               |
+| `NTFY_URL`           | ntfy topic URL for push notifications on torrent completion, e.g. `https://ntfy.example.com/torrents` (optional) |
+| `NTFY_USER`          | ntfy username (optional)                                                 |
+| `NTFY_PASS`          | ntfy password (optional)                                                 |
 
 > **Exposing the dashboard outside your LAN?** Set `DASHBOARD_TOKEN` to a strong password. The browser will prompt once per session and cache the credentials automatically — no login page required.
 

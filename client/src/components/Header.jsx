@@ -265,7 +265,7 @@ export default function Header({
 					</button>
 
 					{/* Notifications */}
-					<div ref={notifsRef} className="relative">
+					<div ref={notifsRef} className="relative flex items-center">
 						<button
 							onClick={() => { setNotifsOpen((o) => !o); if (!notifsOpen) onNotifRead(); }}
 							className="relative cursor-pointer text-slate-500 hover:text-slate-300 transition-colors"
@@ -284,7 +284,7 @@ export default function Header({
 					</div>
 
 					{/* Settings */}
-					<div ref={settingsRef} className="relative">
+					<div ref={settingsRef} className="relative flex items-center">
 						<button
 							onClick={() => setSettingsOpen((o) => !o)}
 							className="cursor-pointer text-slate-500 hover:text-slate-300 transition-colors"

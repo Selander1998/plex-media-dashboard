@@ -36,6 +36,9 @@ const TORRENT_SAVE_PATHS = (process.env.TORRENT_SAVE_PATHS || "")
 const TORRENT_TEMP_SUBDIR = process.env.TORRENT_TEMP_SUBDIR || "";
 const PLEX_URL = process.env.PLEX_URL || "";
 const PLEX_TOKEN = process.env.PLEX_TOKEN || "";
+const NTFY_URL = process.env.NTFY_URL || "";
+const NTFY_USER = process.env.NTFY_USER || "";
+const NTFY_PASS = process.env.NTFY_PASS || "";
 
 const GIT_HASH = (() => {
 	try { return execSync("git rev-parse --short HEAD", { encoding: "utf8" }).trim(); }
@@ -518,6 +521,25 @@ setInterval(async () => {
 }, 30_000);
 
 app.get("/api/version", (_req, res) => res.json({ hash: GIT_HASH }));
+
+app.post("/api/notify", async (req, res) => {
+	if (!NTFY_URL) return res.status(503).json({ error: "NTFY_URL not configured" });
+	const { title } = req.body;
+	try {
+		await fetch(NTFY_URL, {
+			method: "POST",
+			headers: {
+				"Authorization": "Basic " + Buffer.from(`${NTFY_USER}:${NTFY_PASS}`).toString("base64"),
+				"Title": "Download complete",
+				"Tags": "white_check_mark",
+			},
+			body: title || "Torrent finished",
+		});
+		res.json({ ok: true });
+	} catch (e) {
+		res.status(500).json({ error: e.message });
+	}
+});
 
 app.get("/api/cache", async (_req, res) => {
 	try {
