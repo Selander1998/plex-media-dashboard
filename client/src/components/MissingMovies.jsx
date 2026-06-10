@@ -17,12 +17,7 @@ export default function MissingMovies({
 	const [search, setSearch] = useState("");
 
 	if (loading) return <div className="text-center py-12 text-slate-400">{t("loading_report")}</div>;
-	if (error)
-		return (
-			<div className="bg-[#2d1a1a] border border-[#5c2626] rounded-lg p-4 text-red-500">
-				{error}
-			</div>
-		);
+	if (error) return <div className="bg-[#2d1a1a] border border-[#5c2626] rounded-lg p-4 text-red-500">{error}</div>;
 	if (!data) return null;
 
 	const visibleMissing = data.missing.filter((m) => !blockedTitles.has(m.title.toLowerCase()));
@@ -46,32 +41,14 @@ export default function MissingMovies({
 	return (
 		<div>
 			<div className="flex gap-4 mb-5 flex-wrap">
-				{data.total != null && (
-					<StatCard
-						label={t("stat_movies_on_disk")}
-						value={data.total}
-						colorClass="text-slate-200"
-					/>
-				)}
-				<StatCard
-					label={t("stat_missing_movies")}
-					value={visibleMissing.length}
-					colorClass="text-red-500"
-				/>
+				{data.total != null && <StatCard label={t("stat_movies_on_disk")} value={data.total} colorClass="text-slate-200" />}
+				<StatCard label={t("stat_missing_movies")} value={visibleMissing.length} colorClass="text-red-500" />
 				<StatCard label={t("stat_affected_collections")} value={collections.length} />
 				{data.multiple_videos?.length > 0 && (
-					<StatCard
-						label={t("stat_multiple_versions")}
-						value={data.multiple_videos.length}
-						colorClass="text-yellow-500"
-					/>
+					<StatCard label={t("stat_multiple_versions")} value={data.multiple_videos.length} colorClass="text-yellow-500" />
 				)}
 				{data.unneeded_files?.length > 0 && (
-					<StatCard
-						label={t("stat_unneeded_files")}
-						value={data.unneeded_files.length}
-						colorClass="text-yellow-500"
-					/>
+					<StatCard label={t("stat_unneeded_files")} value={data.unneeded_files.length} colorClass="text-yellow-500" />
 				)}
 			</div>
 
@@ -156,9 +133,7 @@ function MovieCard({ movie, onBlacklist, matchedTorrents = [], isNew = false, on
 	return (
 		<div className="bg-surface border border-border rounded-lg px-4 py-3.5 flex flex-col gap-1.5 group">
 			<div className="flex items-start gap-2">
-				<span className="text-sm font-semibold text-slate-200 flex-1 leading-snug">
-					{movie.title}
-				</span>
+				<span className="text-sm font-semibold text-slate-200 flex-1 leading-snug">{movie.title}</span>
 				{isNew && (
 					<span className="shrink-0 px-1.5 py-0.5 rounded border text-[10px] font-medium text-teal-400 border-teal-800 bg-teal-950/40">
 						{t("badge_new")}
@@ -167,9 +142,7 @@ function MovieCard({ movie, onBlacklist, matchedTorrents = [], isNew = false, on
 				{matchedTorrents.map((tor) => {
 					const { label, cls } = torrentBadgeProps(tor, t);
 					return (
-						<span
-							key={tor.hash}
-							className={`shrink-0 px-1.5 py-0.5 rounded border text-[10px] font-medium ${cls}`}>
+						<span key={tor.hash} className={`shrink-0 px-1.5 py-0.5 rounded border text-[10px] font-medium ${cls}`}>
 							{label}
 						</span>
 					);
@@ -181,10 +154,7 @@ function MovieCard({ movie, onBlacklist, matchedTorrents = [], isNew = false, on
 					{movie.tmdb_id && (
 						<>
 							{" · "}
-							<a
-								href={`https://www.themoviedb.org/movie/${movie.tmdb_id}`}
-								target="_blank"
-								rel="noreferrer">
+							<a href={`https://www.themoviedb.org/movie/${movie.tmdb_id}`} target="_blank" rel="noreferrer">
 								TMDB
 							</a>
 						</>
@@ -194,7 +164,8 @@ function MovieCard({ movie, onBlacklist, matchedTorrents = [], isNew = false, on
 					onClick={handleBlacklist}
 					disabled={pending}
 					title={t("blacklist_btn")}
-					className="opacity-0 group-hover:opacity-100 transition-opacity w-5 h-5 flex items-center justify-center rounded text-slate-500 hover:text-red-400 hover:bg-surface2 disabled:opacity-30 cursor-pointer">
+					className="opacity-0 group-hover:opacity-100 transition-opacity w-5 h-5 flex items-center justify-center rounded text-slate-500 hover:text-red-400 hover:bg-surface2 disabled:opacity-30 cursor-pointer"
+				>
 					<svg className="w-3 h-3" viewBox="0 0 20 20" fill="currentColor">
 						<path
 							fillRule="evenodd"

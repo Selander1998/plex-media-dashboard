@@ -154,7 +154,6 @@ export default function Torrents({ torrents, transfer, loading, error, onRefresh
 	const [confirmDelete, setConfirmDelete] = useState(new Set());
 	const [expandedHash, setExpandedHash] = useState(null);
 	const [actionError, setActionError] = useState(null);
-	const [autoPause, setAutoPause] = useState(false);
 	const [renamingHash, setRenamingHash] = useState(null);
 	const [renameValue, setRenameValue] = useState("");
 	const [expandedGroups, setExpandedGroups] = useState(new Set());
@@ -181,24 +180,7 @@ export default function Torrents({ torrents, transfer, loading, error, onRefresh
 		{ value: "error", label: tr("filter_error") },
 	];
 
-	useEffect(() => {
-		fetch("/api/qbit/auto-pause")
-			.then((r) => r.json())
-			.then((d) => setAutoPause(d.enabled));
-	}, []);
-
-	async function toggleAutoPause() {
-		const next = !autoPause;
-		setAutoPause(next);
-		onToast?.(tr(next ? "toast_auto_pause_on" : "toast_auto_pause_off"));
-		await fetch("/api/qbit/auto-pause", {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ enabled: next }),
-		});
-	}
-
-	async function handleAction(action, hash) {
+async function handleAction(action, hash) {
 		setPending((p) => new Set([...p, hash]));
 		try {
 			const res = await fetch(`/api/torrents/${action}`, {
@@ -412,17 +394,6 @@ export default function Torrents({ torrents, transfer, loading, error, onRefresh
 						onChange={(e) => setSearch(e.target.value)}
 						className="bg-surface border border-border rounded-md px-3 py-1.5 text-slate-200 text-[13px] flex-1 min-w-0 outline-none focus:border-indigo-500 transition-colors"
 					/>
-					<button
-						onClick={toggleAutoPause}
-						title={tr("auto_pause_title")}
-						className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-xs cursor-pointer transition-colors ${
-							autoPause
-								? "bg-green-500/15 border-green-600 text-green-400"
-								: "bg-surface border-border text-slate-400 hover:text-slate-200"
-						}`}>
-						<span className={`w-1.5 h-1.5 rounded-full ${autoPause ? "bg-green-400" : "bg-slate-600"}`} />
-						<span className="hidden sm:inline">{tr("auto_pause_btn")}</span>
-					</button>
 				</div>
 				<div className="flex gap-1 w-full overflow-x-auto">
 					{filters.map((f) => (
