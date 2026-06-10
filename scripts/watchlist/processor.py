@@ -1,6 +1,7 @@
 """Watchlist processing — blacklist loading, release checks, deduplication, and output."""
 
 import json
+import re
 import datetime
 import urllib.request
 import urllib.error
@@ -31,13 +32,22 @@ def load_blacklist(blacklist_path: str) -> Set[str]:
 
 def is_released(url: str, title: str) -> bool:
 	"""
-	Heuristic check: fetch the Plex page and look for 'Where to Watch' / rating signals.
-	Returns True if released (or if the check fails — fail open).
+	Check release status by parsing the releaseDate from the Plex page JSON.
+	Falls back to True (fail open) if the date can't be determined.
 	"""
 	try:
 		req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
 		with urllib.request.urlopen(req) as response:
 			html = response.read().decode("utf-8")
+		match = re.search(r'releaseDate\\":\\"(\d{4}-\d{2}-\d{2})\\"', html)
+		if match:
+			release_date = match.group(1)
+			today = datetime.datetime.now().strftime("%Y-%m-%d")
+			released = release_date <= today
+			if not released:
+				print(f"  ~ Skipping unreleased: {title} (releases {release_date})")
+			return released
+		# Fall back to old heuristics if no date found
 		if "Where to Watch" in html:
 			return True
 		if "audience rating" in html or "Tomatometer" in html:
