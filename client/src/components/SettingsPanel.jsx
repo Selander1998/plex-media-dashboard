@@ -8,6 +8,7 @@ const INTERVALS = [
 	{ value: 5000, label: "5s" },
 	{ value: 10000, label: "10s" },
 	{ value: 30000, label: "30s" },
+	{ value: 60000, label: "60s" },
 ];
 
 export default function SettingsPanel({ settings, updateSetting, report, locale, onToast }) {
