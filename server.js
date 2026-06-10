@@ -486,7 +486,9 @@ app.get("/api/qbit/transfer", async (req, res) => {
 });
 
 const SEEDING_STATES = new Set(["uploading", "stalledUP", "queuedUP"]);
+const DONE_STATES = new Set(["pausedUP", "stoppedUP", "uploading", "stalledUP"]);
 let autoPauseSeeding = true;
+const prevTorrentStates = new Map();
 
 app.get("/api/qbit/auto-pause", (req, res) => {
 	res.json({ enabled: autoPauseSeeding });
@@ -501,12 +503,26 @@ app.post("/api/qbit/auto-pause", (req, res) => {
 });
 
 setInterval(async () => {
-	if (!autoPauseSeeding) return;
 	try {
 		const qres = await qbitFetch("/api/v2/torrents/info");
 		const torrents = await qres.json();
+
 		for (const t of torrents) {
-			if (SEEDING_STATES.has(t.state)) {
+			const prev = prevTorrentStates.get(t.hash);
+			if (prev && !DONE_STATES.has(prev) && DONE_STATES.has(t.state) && NTFY_URL) {
+				fetch(NTFY_URL, {
+					method: "POST",
+					headers: {
+						"Authorization": "Basic " + Buffer.from(`${NTFY_USER}:${NTFY_PASS}`).toString("base64"),
+						"Title": "Download complete",
+						"Tags": "white_check_mark",
+					},
+					body: t.name,
+				}).catch((e) => console.error("[ntfy] error:", e.message));
+				console.log(`[ntfy] notified: ${t.name}`);
+			}
+
+			if (autoPauseSeeding && SEEDING_STATES.has(t.state)) {
 				await qbitFetch("/api/v2/torrents/pause", {
 					method: "POST",
 					headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -515,6 +531,8 @@ setInterval(async () => {
 				console.log(`[auto-pause] paused ${t.name}`);
 			}
 		}
+
+		for (const t of torrents) prevTorrentStates.set(t.hash, t.state);
 	} catch (e) {
 		console.error("[auto-pause] error:", e.message);
 	}
