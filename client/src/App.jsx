@@ -26,8 +26,10 @@ export default function App() {
 }
 
 function AppContent() {
-	const [tab, setTab] = useState("torrents");
+	const [tab, setTab] = useState(() => localStorage.getItem("dashboard_tab") || "torrents");
 	const [gitHash, setGitHash] = useState(null);
+
+	useEffect(() => { localStorage.setItem("dashboard_tab", tab); }, [tab]);
 	useEffect(() => {
 		fetch("/api/version")
 			.then((r) => r.json())

@@ -146,7 +146,7 @@ export default function Torrents({ torrents, transfer, loading, error, onRefresh
 	const { t: tr, lang } = useLang();
 	const locale = lang === "sv" ? "sv-SE" : "en-US";
 
-	const [filter, setFilter] = useState("all");
+	const [filter, setFilter] = useState(() => localStorage.getItem("torrent_filter") || "all");
 	const [sortKey, setSortKey] = useState("progress");
 	const [sortDir, setSortDir] = useState("desc");
 	const [search, setSearch] = useState("");
@@ -399,7 +399,7 @@ async function handleAction(action, hash) {
 					{filters.map((f) => (
 						<button
 							key={f.value}
-							onClick={() => setFilter(f.value)}
+							onClick={() => { setFilter(f.value); localStorage.setItem("torrent_filter", f.value); }}
 							className={`shrink-0 px-3 py-1.5 rounded-md border text-xs cursor-pointer transition-colors ${
 								filter === f.value
 									? "bg-indigo-500 border-indigo-500 text-white"
