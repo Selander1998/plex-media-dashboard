@@ -76,6 +76,7 @@ def process_watchlist(
 	output_file_path: str = "plex_watchlist.txt",
 	remove_unreleased: bool = False,
 	blacklist: Optional[Set[str]] = None,
+	owned_titles: Optional[Set[str]] = None,
 	print_output: bool = False,
 	as_json: bool = False,
 ) -> Optional[str]:
@@ -111,10 +112,13 @@ def process_watchlist(
 					if item_year > current_year:
 						continue
 					if item_year == current_year:
-						print(f"Checking release status for: {data['title']}...")
-						if not is_released(data["link"], data["title"]):
-							print(f"Skipping unreleased item: {data['title']}")
-							continue
+						if owned_titles and data["title"].lower() in owned_titles:
+							pass  # Already on disk — skip release check
+						else:
+							print(f"Checking release status for: {data['title']}...")
+							if not is_released(data["link"], data["title"]):
+								print(f"Skipping unreleased item: {data['title']}")
+								continue
 				except ValueError:
 					pass  # Unknown year — keep it
 

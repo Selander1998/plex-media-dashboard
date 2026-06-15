@@ -5,6 +5,7 @@ Feed URLs are read from RSS_URLS in .env (comma-separated).
 """
 
 import os
+import json
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -14,6 +15,19 @@ load_dotenv(_script_dir / ".env")
 load_dotenv(_script_dir.parent / ".env")
 
 from watchlist.processor import load_blacklist, process_watchlist
+
+
+def load_owned_titles(report_path: Path) -> set:
+	try:
+		data = json.loads(report_path.read_text())
+		titles = set()
+		for section in ("movies", "series"):
+			for entry in data.get(section, {}).get("titles_on_disk", []):
+				if isinstance(entry, dict) and "title" in entry:
+					titles.add(entry["title"].lower())
+		return titles
+	except Exception:
+		return set()
 
 
 def main():
@@ -31,7 +45,8 @@ def main():
 	blacklist_path = str(_script_dir / "plex_blacklist.json")
 
 	blacklist = load_blacklist(blacklist_path)
-	result = process_watchlist(rss_urls, output_path, remove_unreleased=True, blacklist=blacklist, as_json=True)
+	owned_titles = load_owned_titles(_script_dir / "report.json")
+	result = process_watchlist(rss_urls, output_path, remove_unreleased=True, blacklist=blacklist, owned_titles=owned_titles, as_json=True)
 
 	if result is None:
 		print("  [ERROR] Failed to write watchlist output file")
