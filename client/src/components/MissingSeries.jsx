@@ -19,12 +19,7 @@ export default function MissingSeries({ data, error, loading, newKeys = new Set(
 	}, []);
 
 	if (loading) return <div className="text-center py-12 text-slate-400">{t("loading_report")}</div>;
-	if (error)
-		return (
-			<div className="bg-[#2d1a1a] border border-[#5c2626] rounded-lg p-4 text-red-500">
-				{error}
-			</div>
-		);
+	if (error) return <div className="bg-[#2d1a1a] border border-[#5c2626] rounded-lg p-4 text-red-500">{error}</div>;
 	if (!data) return null;
 
 	function onBlacklist(show) {
@@ -67,36 +62,16 @@ export default function MissingSeries({ data, error, loading, newKeys = new Set(
 		<div>
 			<div className="flex gap-4 mb-5 flex-wrap">
 				{data.total_shows != null && (
-					<StatCard
-						label={t("stat_series_on_disk")}
-						value={data.total_shows}
-						colorClass="text-slate-200"
-					/>
+					<StatCard label={t("stat_series_on_disk")} value={data.total_shows} colorClass="text-slate-200" />
 				)}
-				{data.total_seasons != null && (
-					<StatCard label={t("stat_seasons")} value={data.total_seasons} />
-				)}
-				{data.total_episodes != null && (
-					<StatCard label={t("stat_episodes")} value={data.total_episodes} />
-				)}
+				{data.total_seasons != null && <StatCard label={t("stat_seasons")} value={data.total_seasons} />}
+				{data.total_episodes != null && <StatCard label={t("stat_episodes")} value={data.total_episodes} />}
 
 				<StatCard label={t("stat_missing_seasons")} value={seasonCount} colorClass="text-red-500" />
-				<StatCard
-					label={t("stat_missing_episodes")}
-					value={episodeCount}
-					colorClass="text-yellow-500"
-				/>
-				<StatCard
-					label={t("stat_affected_series")}
-					value={showCount}
-					colorClass="text-orange-500"
-				/>
+				<StatCard label={t("stat_missing_episodes")} value={episodeCount} colorClass="text-yellow-500" />
+				<StatCard label={t("stat_affected_series")} value={showCount} colorClass="text-orange-500" />
 				{data.multiple_videos?.length > 0 && (
-					<StatCard
-						label={t("stat_multiple_versions")}
-						value={data.multiple_videos.length}
-						colorClass="text-yellow-500"
-					/>
+					<StatCard label={t("stat_multiple_versions")} value={data.multiple_videos.length} colorClass="text-yellow-500" />
 				)}
 			</div>
 
@@ -121,7 +96,8 @@ export default function MissingSeries({ data, error, loading, newKeys = new Set(
 								typeFilter === f.value
 									? "bg-indigo-500 border-indigo-500 text-white"
 									: "bg-surface border-border text-slate-400 hover:text-slate-200"
-							}`}>
+							}`}
+						>
 							{f.label}
 						</button>
 					))}
@@ -129,16 +105,15 @@ export default function MissingSeries({ data, error, loading, newKeys = new Set(
 				{!isSearching && shows.length > 0 && (
 					<button
 						onClick={toggleAll}
-						className="px-3 py-1.5 rounded-md border border-border bg-surface text-slate-400 text-xs cursor-pointer hover:text-slate-200 transition-colors ml-auto">
+						className="px-3 py-1.5 rounded-md border border-border bg-surface text-slate-400 text-xs cursor-pointer hover:text-slate-200 transition-colors ml-auto"
+					>
 						{allExpanded ? t("collapse_all") : t("expand_all")}
 					</button>
 				)}
 			</div>
 
 			{shows.length === 0 ? (
-				<div className="text-center py-12 text-slate-400">
-					{isSearching ? t("no_results") : t("no_missing_series")}
-				</div>
+				<div className="text-center py-12 text-slate-400">{isSearching ? t("no_results") : t("no_missing_series")}</div>
 			) : (
 				<div className="flex flex-col gap-2">
 					{shows.map((show) => (
@@ -174,9 +149,7 @@ function rowTorrents(m, matchedTorrents) {
 		return matchedTorrents.filter((t) => torrentCoversSeason(t.name, m.season));
 	}
 	const tag = `s${pad(m.season)}e${pad(m.episode)}`;
-	return matchedTorrents.filter(
-		(t) => normalizeName(t.name).includes(tag) || torrentCoversSeason(t.name, m.season),
-	);
+	return matchedTorrents.filter((t) => normalizeName(t.name).includes(tag) || torrentCoversSeason(t.name, m.season));
 }
 
 const seriesKey = (m) => `${m.show}|${m.type}|${m.season}|${m.episode ?? 0}`;
@@ -241,12 +214,14 @@ function ShowSection({
 				onClick={showToggle ? onToggle : undefined}
 				className={`w-full flex items-center gap-3 px-4 py-3 text-left ${
 					showToggle ? "cursor-pointer hover:bg-surface2" : "cursor-default"
-				} transition-colors group`}>
+				} transition-colors group`}
+			>
 				{showToggle && (
 					<svg
 						className={`shrink-0 w-3.5 h-3.5 text-slate-400 transition-transform ${expanded ? "rotate-90" : ""}`}
 						viewBox="0 0 20 20"
-						fill="currentColor">
+						fill="currentColor"
+					>
 						<path
 							fillRule="evenodd"
 							d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z"
@@ -266,7 +241,8 @@ function ShowSection({
 							<span
 								key={tor.hash}
 								onClick={(e) => e.stopPropagation()}
-								className={`px-1.5 py-0.5 rounded border text-[10px] font-medium ${cls}`}>
+								className={`px-1.5 py-0.5 rounded border text-[10px] font-medium ${cls}`}
+							>
 								{label}
 							</span>
 						);
@@ -287,7 +263,8 @@ function ShowSection({
 							target="_blank"
 							rel="noreferrer"
 							onClick={(e) => e.stopPropagation()}
-							className="text-indigo-500">
+							className="text-indigo-500"
+						>
 							TMDB
 						</a>
 					)}
@@ -295,7 +272,8 @@ function ShowSection({
 						onClick={handleBlacklist}
 						disabled={pending}
 						title={t("blacklist_btn")}
-						className="opacity-0 group-hover:opacity-100 transition-opacity w-5 h-5 flex items-center justify-center rounded text-slate-500 hover:text-red-400 hover:bg-surface2 disabled:opacity-30 cursor-pointer">
+						className="opacity-0 group-hover:opacity-100 transition-opacity w-5 h-5 flex items-center justify-center rounded text-slate-500 hover:text-red-400 hover:bg-surface2 disabled:opacity-30 cursor-pointer"
+					>
 						<svg className="w-3 h-3" viewBox="0 0 20 20" fill="currentColor">
 							<path
 								fillRule="evenodd"
@@ -323,9 +301,7 @@ function ShowSection({
 							{seasons.map((s) => {
 								const { full, episodes } = bySeasonNum[s];
 								const pad2 = (n) => String(n).padStart(2, "0");
-								const isNewSeason = full
-									? newKeys.has(seriesKey(full))
-									: episodes.some((m) => newKeys.has(seriesKey(m)));
+								const isNewSeason = full ? newKeys.has(seriesKey(full)) : episodes.some((m) => newKeys.has(seriesKey(m)));
 								const seasonTorrents = full
 									? rowTorrents(full, matchedTorrents)
 									: matchedTorrents.filter((tor) => torrentCoversSeason(tor.name, s));
@@ -334,9 +310,7 @@ function ShowSection({
 									: episodes[0]?.first_air_date || episodes[0]?.air_date;
 								return (
 									<div key={s} className="flex items-center gap-3 px-4 py-2.5 hover:bg-surface2">
-										<span className="text-slate-400 text-[13px] shrink-0 w-20">
-											{t("season_label", { n: pad2(s) })}
-										</span>
+										<span className="text-slate-400 text-[13px] shrink-0 w-20">{t("season_label", { n: pad2(s) })}</span>
 										<div className="flex items-center gap-2 flex-wrap flex-1">
 											{full ? (
 												<span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-red-500/15 text-red-400 border border-red-800">
@@ -355,17 +329,13 @@ function ShowSection({
 											{seasonTorrents.map((tor) => {
 												const { label, cls } = torrentBadgeProps(tor, t);
 												return (
-													<span
-														key={tor.hash}
-														className={`px-1.5 py-0.5 rounded border text-[10px] font-medium ${cls}`}>
+													<span key={tor.hash} className={`px-1.5 py-0.5 rounded border text-[10px] font-medium ${cls}`}>
 														{label}
 													</span>
 												);
 											})}
 										</div>
-										{airDate && (
-											<span className="text-slate-500 text-[12px] shrink-0">{airDate}</span>
-										)}
+										{airDate && <span className="text-slate-500 text-[12px] shrink-0">{airDate}</span>}
 									</div>
 								);
 							})}

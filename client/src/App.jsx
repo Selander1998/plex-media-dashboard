@@ -4,6 +4,7 @@ import MissingSeries from "./components/MissingSeries.jsx";
 import Torrents from "./components/Torrents.jsx";
 import Watchlist from "./components/Watchlist.jsx";
 import Warnings from "./components/Warnings.jsx";
+import QualityReport from "./components/QualityReport.jsx";
 import Header from "./components/Header.jsx";
 import UpdateModal from "./components/UpdateModal.jsx";
 import PasteModal from "./components/PasteModal.jsx";
@@ -37,6 +38,19 @@ function AppContent() {
 			.catch(() => {});
 	}, []);
 
+	const [qualityData, setQualityData] = useState(null);
+	const [qualityError, setQualityError] = useState(null);
+	const [qualityLoading, setQualityLoading] = useState(false);
+
+	useEffect(() => {
+		if (tab !== "quality" || qualityData || qualityLoading) return;
+		setQualityLoading(true);
+		fetch("/api/quality")
+			.then((r) => r.json())
+			.then((d) => { setQualityData(d); setQualityLoading(false); })
+			.catch((e) => { setQualityError(e.message); setQualityLoading(false); });
+	}, [tab]);
+
 	const { settings, updateSetting } = useSettings();
 	const { toasts, history: notifHistory, unread: notifUnread, pushToast, clearUnread: onNotifRead, clearHistory: onNotifClear } = useToasts();
 
@@ -48,7 +62,7 @@ function AppContent() {
 
 	const { savePaths, tempPaths, savePathIdx, setSavePathIdx, diskSpace, totalDiskCapacity } = useSavePaths();
 
-	const { refreshing, updateStatus, updateLog, updateStats, noCache, tick, timestamps, logRef, handleRefresh, handleClose } = useUpdate({
+	const { refreshing, updateStatus, updateLog, updateStats, noCache, tick, timestamps, logRef, handleRefresh, handleAbort, handleClose } = useUpdate({
 		onSuccess: loadData,
 		onError: (msg) => pushToast(msg, true),
 	});
@@ -84,6 +98,7 @@ function AppContent() {
 					timestamps={timestamps}
 					logRef={logRef}
 					onClose={handleClose}
+					onAbort={handleAbort}
 				/>
 			)}
 
@@ -161,6 +176,7 @@ function AppContent() {
 					/>
 				)}
 				{tab === "warnings" && <Warnings report={report} error={reportError} loading={!report && !reportError} />}
+				{tab === "quality" && <QualityReport data={qualityData} error={qualityError} loading={qualityLoading} />}
 			</main>
 
 			{pasteMode && (

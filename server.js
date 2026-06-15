@@ -28,6 +28,7 @@ const QBIT_USERNAME = process.env.QBIT_USERNAME || "admin";
 const QBIT_PASSWORD = process.env.QBIT_PASSWORD || "adminadmin";
 const REPORT_PATH = process.env.REPORT_PATH || join(__dirname, "scripts", "report.json");
 const WATCHLIST_PATH = process.env.WATCHLIST_PATH || join(__dirname, "scripts", "watchlist.json");
+const QUALITY_REPORT_PATH = join(dirname(REPORT_PATH), "quality_report.json");
 const PLEX_BLACKLIST_PATH = join(dirname(REPORT_PATH), "plex_blacklist.json");
 const TMDB_CACHE_PATH = join(dirname(REPORT_PATH), "plex_checker_cache.json");
 const PORT = process.env.PORT || 3000;
@@ -230,6 +231,15 @@ app.get("/api/report", async (req, res) => {
 	}
 });
 
+app.get("/api/quality", async (req, res) => {
+	try {
+		const data = await readFile(QUALITY_REPORT_PATH, "utf-8");
+		res.json(JSON.parse(data));
+	} catch (err) {
+		res.status(404).json({ error: "Quality report not found — run update first", detail: err.message });
+	}
+});
+
 app.get("/api/watchlist", async (req, res) => {
 	try {
 		const data = await readFile(WATCHLIST_PATH, "utf-8");
@@ -279,12 +289,15 @@ app.post("/api/blacklist", async (req, res) => {
 
 const UPDATE_SCRIPT = join(__dirname, "scripts", "update.sh");
 let updateRunning = false;
+let updateChild = null;
+let updateAborted = false;
 
 app.post("/api/update", (req, res) => {
 	if (updateRunning) {
 		return res.status(409).json({ error: "Update already running" });
 	}
 	updateRunning = true;
+	updateAborted = false;
 
 	res.setHeader("Content-Type", "text/event-stream");
 	res.setHeader("Cache-Control", "no-cache");
@@ -298,6 +311,7 @@ app.post("/api/update", (req, res) => {
 		timeout: 300_000,
 		env: { ...process.env, PYTHONUNBUFFERED: "1" },
 	});
+	updateChild = child;
 	let tail = "";
 
 	const flush = (chunk) => {
@@ -315,8 +329,11 @@ app.post("/api/update", (req, res) => {
 
 	child.on("close", async (code) => {
 		updateRunning = false;
+		updateChild = null;
 		if (tail.trim()) send({ line: tail.trim() });
-		if (code === 0) {
+		if (updateAborted) {
+			send({ aborted: true });
+		} else if (code === 0) {
 			await refreshPlexLibraries();
 			send({ done: true });
 		} else {
@@ -327,10 +344,20 @@ app.post("/api/update", (req, res) => {
 
 	child.on("error", (err) => {
 		updateRunning = false;
+		updateChild = null;
 		console.error("[update] spawn error:", err.message);
 		send({ error: true });
 		res.end();
 	});
+});
+
+app.post("/api/update/abort", (req, res) => {
+	if (!updateRunning || !updateChild) {
+		return res.status(409).json({ error: "No update running" });
+	}
+	updateAborted = true;
+	updateChild.kill("SIGTERM");
+	res.json({ ok: true });
 });
 
 app.post("/api/torrents/delete", async (req, res) => {

@@ -68,6 +68,12 @@ export function useUpdate({ onSuccess, onError } = {}) {
 						success = true;
 						break;
 					}
+					if (payload.aborted) {
+						timestamps.current.endTime = Date.now();
+						setUpdateStatus("aborted");
+						setRefreshing(false);
+						return;
+					}
 					if (payload.error) throw new Error();
 					if (payload.line) {
 						const line = payload.line;
@@ -80,6 +86,8 @@ export function useUpdate({ onSuccess, onError } = {}) {
 							timestamps.current.plexStart = Date.now();
 						if (!timestamps.current.watchlistStart && /Running watchlist formatter/i.test(line))
 							timestamps.current.watchlistStart = Date.now();
+						if (!timestamps.current.qualityStart && /Running quality checker/i.test(line))
+							timestamps.current.qualityStart = Date.now();
 						if (shouldShowUpdateLine(line)) newLines.push(line);
 					}
 				}
@@ -98,6 +106,10 @@ export function useUpdate({ onSuccess, onError } = {}) {
 			onErrorRef.current?.(tRef.current("toast_update_failed"));
 		}
 		// Modal stays open — user must click Close
+	}
+
+	async function handleAbort() {
+		await fetch("/api/update/abort", { method: "POST" }).catch(() => {});
 	}
 
 	function handleClose() {
@@ -120,6 +132,7 @@ export function useUpdate({ onSuccess, onError } = {}) {
 		timestamps,
 		logRef,
 		handleRefresh,
+		handleAbort,
 		handleClose,
 	};
 }

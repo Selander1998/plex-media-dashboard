@@ -6,7 +6,18 @@ function secs(start, end) {
 	return Math.floor(((end ?? Date.now()) - start) / 1000);
 }
 
-export default function UpdateModal({ updateStatus, updateLog, updateStats, noCache, tick, timestamps, logRef, onClose }) {
+function fmtDuration(s) {
+	if (s == null) return null;
+	if (s < 60) return `${s}s`;
+	const m = Math.floor(s / 60);
+	const rem = s % 60;
+	if (m < 60) return rem > 0 ? `${m}m ${rem}s` : `${m}m`;
+	const h = Math.floor(m / 60);
+	const rm = m % 60;
+	return rm > 0 ? `${h}h ${rm}m` : `${h}h`;
+}
+
+export default function UpdateModal({ updateStatus, updateLog, updateStats, noCache, tick, timestamps, logRef, onClose, onAbort }) {
 	const { t } = useLang();
 	// tick is read to force re-renders for live timer; timestamps.current holds section start/end times
 	void tick;
@@ -15,7 +26,8 @@ export default function UpdateModal({ updateStatus, updateLog, updateStats, noCa
 	const moviesElapsed    = secs(ts.moviesStart,    ts.showsStart     ?? ts.endTime);
 	const showsElapsed     = secs(ts.showsStart,     ts.plexStart      ?? ts.watchlistStart ?? ts.endTime);
 	const plexElapsed      = secs(ts.plexStart,      ts.watchlistStart ?? ts.endTime);
-	const watchlistElapsed = secs(ts.watchlistStart, ts.endTime);
+	const watchlistElapsed = secs(ts.watchlistStart, ts.qualityStart   ?? ts.endTime);
+	const qualityElapsed   = secs(ts.qualityStart,   ts.endTime);
 
 	return (
 		<div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
@@ -48,15 +60,23 @@ export default function UpdateModal({ updateStatus, updateLog, updateStats, noCa
 						</svg>
 					)}
 					<span
-						className={`text-sm font-medium ${updateStatus === "ok" ? "text-emerald-400" : updateStatus === "error" ? "text-red-400" : "text-slate-200"}`}
+						className={`text-sm font-medium ${updateStatus === "ok" ? "text-emerald-400" : updateStatus === "error" ? "text-red-400" : updateStatus === "aborted" ? "text-amber-400" : "text-slate-200"}`}
 					>
-						{updateStatus === "ok" ? t("update_done") : updateStatus === "error" ? t("update_failed") : t("updating")}
+						{updateStatus === "ok" ? t("update_done") : updateStatus === "error" ? t("update_failed") : updateStatus === "aborted" ? "Update cancelled" : t("updating")}
 					</span>
 					{totalElapsed != null && (
-						<span className="text-xs text-slate-500">{totalElapsed}s</span>
+						<span className="text-xs text-slate-500">{fmtDuration(totalElapsed)}</span>
 					)}
 					{noCache && !updateStatus && (
 						<span className="ml-auto text-xs text-amber-400">{t("update_no_cache_warn")}</span>
+					)}
+					{!updateStatus && onAbort && (
+						<button
+							onClick={onAbort}
+							className="ml-auto text-xs text-slate-500 hover:text-red-400 transition-colors cursor-pointer"
+						>
+							Cancel
+						</button>
 					)}
 				</div>
 
@@ -71,7 +91,7 @@ export default function UpdateModal({ updateStatus, updateLog, updateStats, noCa
 										: updateStats.movies}{" "}
 									{t("update_stat_movies")}
 								</span>
-								{moviesElapsed != null && <span className="text-indigo-500">{moviesElapsed}s</span>}
+								{moviesElapsed != null && <span className="text-indigo-500">{fmtDuration(moviesElapsed)}</span>}
 							</span>
 						)}
 						{updateStats.shows != null && (
@@ -82,19 +102,30 @@ export default function UpdateModal({ updateStatus, updateLog, updateStats, noCa
 										: updateStats.shows}{" "}
 									{t("update_stat_shows")}
 								</span>
-								{showsElapsed != null && <span className="text-purple-500">{showsElapsed}s</span>}
+								{showsElapsed != null && <span className="text-purple-500">{fmtDuration(showsElapsed)}</span>}
 							</span>
 						)}
 						{updateStats.watchlist != null && (
 							<span className="px-2.5 py-1 rounded-md bg-teal-500/15 border border-teal-800 text-teal-300 text-xs font-medium flex items-center gap-1.5">
 								<span>{updateStats.watchlist} {t("update_stat_watchlist")}</span>
-								{watchlistElapsed != null && <span className="text-teal-600">{watchlistElapsed}s</span>}
+								{watchlistElapsed != null && <span className="text-teal-600">{fmtDuration(watchlistElapsed)}</span>}
 							</span>
 						)}
 						{updateStats.plexFiles != null && (
 							<span className="px-2.5 py-1 rounded-md bg-slate-500/15 border border-slate-700 text-slate-300 text-xs font-medium flex items-center gap-1.5">
 								<span>{updateStats.plexFiles.toLocaleString()} {t("update_stat_plex")}</span>
-								{plexElapsed != null && <span className="text-slate-500">{plexElapsed}s</span>}
+								{plexElapsed != null && <span className="text-slate-500">{fmtDuration(plexElapsed)}</span>}
+							</span>
+						)}
+						{(updateStats.qualityTotal != null || updateStats.qualityIssues != null) && (
+							<span className="px-2.5 py-1 rounded-md bg-amber-500/15 border border-amber-800 text-amber-300 text-xs font-medium flex items-center gap-1.5">
+								<span>
+									{updateStats.qualityChecked != null && updateStats.qualityTotal != null
+										? `${updateStats.qualityChecked}/${updateStats.qualityTotal}`
+										: updateStats.qualityTotal}{" "}
+									files — {updateStats.qualityIssues ?? "…"} issues
+								</span>
+								{qualityElapsed != null && <span className="text-amber-600">{fmtDuration(qualityElapsed)}</span>}
 							</span>
 						)}
 					</div>
