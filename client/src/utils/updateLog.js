@@ -1,7 +1,7 @@
 export function shouldShowUpdateLine(line) {
 	const trimmed = line.trim();
 	if (/^═+$/.test(trimmed)) return false;
-	if (/^\[PROGRESS\]/.test(trimmed)) return false;
+	if (/^\[PROGRESS\] (movies|series|quality)/.test(trimmed)) return false;
 	if (/^\s*\[\d+\/\d+\]/.test(trimmed)) return false;
 	if (/^\s*✓ .+\(\d{4}\)(\s+\[.*\])?$/.test(trimmed)) return false;
 	if (/^\s*✓ Season \d+: complete/.test(trimmed)) return false;
@@ -14,6 +14,10 @@ export function extractUpdateStat(line, prev) {
 		return { ...prev, moviesChecked: parseInt(m[1]), movies: parseInt(m[2]) };
 	if ((m = line.match(/\[PROGRESS\] series (\d+)\/(\d+)/i)))
 		return { ...prev, seriesChecked: parseInt(m[1]), shows: parseInt(m[2]) };
+	if ((m = line.match(/\[PROGRESS\] quality (\d+)\/(\d+)/i)))
+		return { ...prev, qualityChecked: parseInt(m[1]), qualityTotal: parseInt(m[2]) };
+	if ((m = line.match(/(\d+) quality issues? found across (\d+) files?/i)))
+		return { ...prev, qualityTotal: parseInt(m[2]) };
 	if ((m = line.match(/(\d[\d,]*) movies? found/i))) return { ...prev, movies: parseInt(m[1].replace(/,/g, "")) };
 	if ((m = line.match(/(\d[\d,]*) shows? found/i))) return { ...prev, shows: parseInt(m[1].replace(/,/g, "")) };
 	if ((m = line.match(/✓\s+(\d[\d,]*) unique watchlist/i)))

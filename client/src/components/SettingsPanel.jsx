@@ -14,6 +14,7 @@ const INTERVALS = [
 export default function SettingsPanel({ settings, updateSetting, report, locale, onToast }) {
 	const { lang, switchLang, t } = useLang();
 	const [cacheStatus, setCacheStatus] = useState(null);
+	const [qualityCacheStatus, setQualityCacheStatus] = useState(null);
 	const [autoPause, setAutoPause] = useState(false);
 
 	useEffect(() => {
@@ -32,6 +33,22 @@ export default function SettingsPanel({ settings, updateSetting, report, locale,
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({ enabled: next }),
 		});
+	}
+
+	async function handleClearQualityCache() {
+		if (qualityCacheStatus === "loading") return;
+		setQualityCacheStatus("loading");
+		try {
+			const res = await fetch("/api/quality-cache", { method: "DELETE" });
+			if (!res.ok) throw new Error();
+			setQualityCacheStatus("ok");
+			onToast(t("toast_quality_cache_cleared"));
+		} catch {
+			setQualityCacheStatus("error");
+			onToast(t("toast_quality_cache_clear_failed"), true);
+		} finally {
+			setTimeout(() => setQualityCacheStatus(null), 2000);
+		}
 	}
 
 	async function handleClearCache() {
@@ -119,6 +136,18 @@ export default function SettingsPanel({ settings, updateSetting, report, locale,
 						<path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
 					</svg>
 					{cacheStatus === "ok" ? t("toast_cache_cleared") : cacheStatus === "error" ? t("toast_cache_clear_failed") : t("clear_cache_title")}
+				</button>
+				<button
+					onClick={handleClearQualityCache}
+					disabled={qualityCacheStatus === "loading"}
+					className={`flex items-center gap-2 text-xs cursor-pointer transition-colors disabled:opacity-40 ${
+						qualityCacheStatus === "ok" ? "text-green-400" : qualityCacheStatus === "error" ? "text-red-400" : "text-slate-400 hover:text-slate-200"
+					}`}
+				>
+					<svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+						<path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+					</svg>
+					{qualityCacheStatus === "ok" ? t("toast_quality_cache_cleared") : qualityCacheStatus === "error" ? t("toast_quality_cache_clear_failed") : t("clear_quality_cache_title")}
 				</button>
 			</div>
 		</div>

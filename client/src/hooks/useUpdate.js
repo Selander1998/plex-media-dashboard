@@ -17,7 +17,8 @@ export function useUpdate({ onSuccess, onError } = {}) {
 	const [updateStatus, setUpdateStatus] = useState(null);
 	const [updateLog, setUpdateLog] = useState([]);
 	const [updateStats, setUpdateStats] = useState({});
-	const [noCache, setNoCache] = useState(false);
+	const [noTmdbCache, setNoTmdbCache] = useState(false);
+	const [noQualityCache, setNoQualityCache] = useState(false);
 	const [tick, setTick] = useState(0);
 	const logRef = useRef(null);
 	const timestamps = useRef({});
@@ -34,14 +35,18 @@ export function useUpdate({ onSuccess, onError } = {}) {
 
 	async function handleRefresh() {
 		if (refreshing) return;
-		const cacheCheck = await fetch("/api/cache").then((r) => r.json()).catch(() => ({ exists: true }));
+		const [cacheCheck, qualityCacheCheck] = await Promise.all([
+			fetch("/api/cache").then((r) => r.json()).catch(() => ({ exists: true })),
+			fetch("/api/quality-cache").then((r) => r.json()).catch(() => ({ exists: true })),
+		]);
 		timestamps.current = { updateStart: Date.now() };
 		flushSync(() => {
 			setRefreshing(true);
 			setUpdateStatus(null);
 			setUpdateLog([]);
 			setUpdateStats({});
-			setNoCache(!cacheCheck.exists);
+			setNoTmdbCache(!cacheCheck.exists);
+			setNoQualityCache(!qualityCacheCheck.exists);
 			setTick(0);
 		});
 		try {
@@ -99,8 +104,8 @@ export function useUpdate({ onSuccess, onError } = {}) {
 
 			if (!success) throw new Error();
 			timestamps.current.endTime = Date.now();
-			await onSuccessRef.current?.();
 			setUpdateStatus("ok");
+			onSuccessRef.current?.().catch(() => {});
 		} catch {
 			setUpdateStatus("error");
 			onErrorRef.current?.(tRef.current("toast_update_failed"));
@@ -117,7 +122,8 @@ export function useUpdate({ onSuccess, onError } = {}) {
 		setUpdateStatus(null);
 		setUpdateLog([]);
 		setUpdateStats({});
-		setNoCache(false);
+		setNoTmdbCache(false);
+		setNoQualityCache(false);
 		setTick(0);
 		timestamps.current = {};
 	}
@@ -127,7 +133,8 @@ export function useUpdate({ onSuccess, onError } = {}) {
 		updateStatus,
 		updateLog,
 		updateStats,
-		noCache,
+		noTmdbCache,
+		noQualityCache,
 		tick,
 		timestamps,
 		logRef,

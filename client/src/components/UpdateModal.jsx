@@ -17,7 +17,7 @@ function fmtDuration(s) {
 	return rm > 0 ? `${h}h ${rm}m` : `${h}h`;
 }
 
-export default function UpdateModal({ updateStatus, updateLog, updateStats, noCache, tick, timestamps, logRef, onClose, onAbort }) {
+export default function UpdateModal({ updateStatus, updateLog, updateStats, noTmdbCache, noQualityCache, tick, timestamps, logRef, onClose, onAbort }) {
 	const { t } = useLang();
 	// tick is read to force re-renders for live timer; timestamps.current holds section start/end times
 	void tick;
@@ -62,74 +62,57 @@ export default function UpdateModal({ updateStatus, updateLog, updateStats, noCa
 					<span
 						className={`text-sm font-medium ${updateStatus === "ok" ? "text-emerald-400" : updateStatus === "error" ? "text-red-400" : updateStatus === "aborted" ? "text-amber-400" : "text-slate-200"}`}
 					>
-						{updateStatus === "ok" ? t("update_done") : updateStatus === "error" ? t("update_failed") : updateStatus === "aborted" ? "Update cancelled" : t("updating")}
+						{updateStatus === "ok" ? t("update_done") : updateStatus === "error" ? t("update_failed") : updateStatus === "aborted" ? t("update_cancelled") : t("updating")}
 					</span>
 					{totalElapsed != null && (
 						<span className="text-xs text-slate-500">{fmtDuration(totalElapsed)}</span>
 					)}
-					{noCache && !updateStatus && (
-						<span className="ml-auto text-xs text-amber-400">{t("update_no_cache_warn")}</span>
-					)}
-					{!updateStatus && onAbort && (
-						<button
-							onClick={onAbort}
-							className="ml-auto text-xs text-slate-500 hover:text-red-400 transition-colors cursor-pointer"
-						>
-							Cancel
-						</button>
+					{(noTmdbCache || noQualityCache) && !updateStatus && (
+						<div className="ml-auto flex items-center gap-2">
+							{noTmdbCache && <span className="text-xs text-amber-400">{t("update_no_tmdb_cache_warn")}</span>}
+							{noQualityCache && <span className="text-xs text-amber-400">{t("update_no_quality_cache_warn")}</span>}
+						</div>
 					)}
 				</div>
 
-				{/* Stats pills */}
-				{Object.keys(updateStats).length > 0 && (
-					<div className="flex gap-2 flex-wrap">
-						{updateStats.movies != null && (
-							<span className="px-2.5 py-1 rounded-md bg-indigo-500/15 border border-indigo-800 text-indigo-300 text-xs font-medium flex items-center gap-1.5">
-								<span>
-									{updateStats.moviesChecked != null
-										? `${updateStats.moviesChecked}/${updateStats.movies}`
-										: updateStats.movies}{" "}
-									{t("update_stat_movies")}
-								</span>
-								{moviesElapsed != null && <span className="text-indigo-500">{fmtDuration(moviesElapsed)}</span>}
-							</span>
-						)}
-						{updateStats.shows != null && (
-							<span className="px-2.5 py-1 rounded-md bg-purple-500/15 border border-purple-800 text-purple-300 text-xs font-medium flex items-center gap-1.5">
-								<span>
-									{updateStats.seriesChecked != null
-										? `${updateStats.seriesChecked}/${updateStats.shows}`
-										: updateStats.shows}{" "}
-									{t("update_stat_shows")}
-								</span>
-								{showsElapsed != null && <span className="text-purple-500">{fmtDuration(showsElapsed)}</span>}
-							</span>
-						)}
-						{updateStats.watchlist != null && (
-							<span className="px-2.5 py-1 rounded-md bg-teal-500/15 border border-teal-800 text-teal-300 text-xs font-medium flex items-center gap-1.5">
-								<span>{updateStats.watchlist} {t("update_stat_watchlist")}</span>
-								{watchlistElapsed != null && <span className="text-teal-600">{fmtDuration(watchlistElapsed)}</span>}
-							</span>
-						)}
-						{updateStats.plexFiles != null && (
-							<span className="px-2.5 py-1 rounded-md bg-slate-500/15 border border-slate-700 text-slate-300 text-xs font-medium flex items-center gap-1.5">
-								<span>{updateStats.plexFiles.toLocaleString()} {t("update_stat_plex")}</span>
-								{plexElapsed != null && <span className="text-slate-500">{fmtDuration(plexElapsed)}</span>}
-							</span>
-						)}
-						{(updateStats.qualityTotal != null || updateStats.qualityIssues != null) && (
-							<span className="px-2.5 py-1 rounded-md bg-amber-500/15 border border-amber-800 text-amber-300 text-xs font-medium flex items-center gap-1.5">
-								<span>
-									{updateStats.qualityChecked != null && updateStats.qualityTotal != null
-										? `${updateStats.qualityChecked}/${updateStats.qualityTotal}`
-										: updateStats.qualityTotal}{" "}
-									files — {updateStats.qualityIssues ?? "…"} issues
-								</span>
-								{qualityElapsed != null && <span className="text-amber-600">{fmtDuration(qualityElapsed)}</span>}
-							</span>
-						)}
-					</div>
-				)}
+				{/* Stats pills — always visible */}
+				<div className="flex gap-2 flex-wrap">
+					<span className="px-2.5 py-1 rounded-md bg-indigo-500/15 border border-indigo-800 text-indigo-300 text-xs font-medium flex items-center gap-1.5">
+						<span>
+							{updateStats.moviesChecked != null
+								? `${updateStats.moviesChecked}/${updateStats.movies}`
+								: (updateStats.movies ?? "…")}{" "}
+							{t("update_stat_movies")}
+						</span>
+						{moviesElapsed != null && <span className="text-indigo-500">{fmtDuration(moviesElapsed)}</span>}
+					</span>
+					<span className="px-2.5 py-1 rounded-md bg-purple-500/15 border border-purple-800 text-purple-300 text-xs font-medium flex items-center gap-1.5">
+						<span>
+							{updateStats.seriesChecked != null
+								? `${updateStats.seriesChecked}/${updateStats.shows}`
+								: (updateStats.shows ?? "…")}{" "}
+							{t("update_stat_shows")}
+						</span>
+						{showsElapsed != null && <span className="text-purple-500">{fmtDuration(showsElapsed)}</span>}
+					</span>
+					<span className="px-2.5 py-1 rounded-md bg-teal-500/15 border border-teal-800 text-teal-300 text-xs font-medium flex items-center gap-1.5">
+						<span>{updateStats.watchlist ?? "…"} {t("update_stat_watchlist")}</span>
+						{watchlistElapsed != null && <span className="text-teal-600">{fmtDuration(watchlistElapsed)}</span>}
+					</span>
+					<span className="px-2.5 py-1 rounded-md bg-slate-500/15 border border-slate-700 text-slate-300 text-xs font-medium flex items-center gap-1.5">
+						<span>{updateStats.plexFiles != null ? updateStats.plexFiles.toLocaleString() : "…"} {t("update_stat_plex")}</span>
+						{plexElapsed != null && <span className="text-slate-500">{fmtDuration(plexElapsed)}</span>}
+					</span>
+					<span className="px-2.5 py-1 rounded-md bg-amber-500/15 border border-amber-800 text-amber-300 text-xs font-medium flex items-center gap-1.5">
+						<span>
+							{updateStats.qualityChecked != null && updateStats.qualityTotal != null
+								? `${updateStats.qualityChecked}/${updateStats.qualityTotal}`
+								: (updateStats.qualityTotal ?? "…")}{" "}
+							{t("update_quality_files")}
+						</span>
+						{qualityElapsed != null && <span className="text-amber-600">{fmtDuration(qualityElapsed)}</span>}
+					</span>
+				</div>
 
 				{/* Log */}
 				<div
@@ -147,9 +130,9 @@ export default function UpdateModal({ updateStatus, updateLog, updateStats, noCa
 					)}
 				</div>
 
-				{/* Close button — only when finished */}
-				{updateStatus !== null && (
-					<div className="flex justify-end">
+				{/* Primary action button — Cancel while running, Close when done */}
+				<div className="flex justify-end">
+					{updateStatus !== null ? (
 						<button
 							onClick={onClose}
 							className={`px-4 py-1.5 rounded-md border text-sm font-medium cursor-pointer transition-colors ${
@@ -160,8 +143,15 @@ export default function UpdateModal({ updateStatus, updateLog, updateStats, noCa
 						>
 							{t("close_btn")}
 						</button>
-					</div>
-				)}
+					) : onAbort ? (
+						<button
+							onClick={onAbort}
+							className="px-4 py-1.5 rounded-md border border-slate-700 text-sm font-medium text-slate-400 hover:border-red-700 hover:text-red-400 transition-colors cursor-pointer"
+						>
+							{t("update_cancel_btn")}
+						</button>
+					) : null}
+				</div>
 			</div>
 		</div>
 	);

@@ -43,10 +43,10 @@ function AppContent() {
 	const [qualityLoading, setQualityLoading] = useState(false);
 
 	useEffect(() => {
-		if (tab !== "quality" || qualityData || qualityLoading) return;
+		if ((tab !== "quality" && tab !== "warnings") || qualityData || qualityLoading) return;
 		setQualityLoading(true);
 		fetch("/api/quality")
-			.then((r) => r.json())
+			.then((r) => { if (!r.ok) throw new Error(r.statusText); return r.json(); })
 			.then((d) => { setQualityData(d); setQualityLoading(false); })
 			.catch((e) => { setQualityError(e.message); setQualityLoading(false); });
 	}, [tab]);
@@ -62,7 +62,7 @@ function AppContent() {
 
 	const { savePaths, tempPaths, savePathIdx, setSavePathIdx, diskSpace, totalDiskCapacity } = useSavePaths();
 
-	const { refreshing, updateStatus, updateLog, updateStats, noCache, tick, timestamps, logRef, handleRefresh, handleAbort, handleClose } = useUpdate({
+	const { refreshing, updateStatus, updateLog, updateStats, noTmdbCache, noQualityCache, tick, timestamps, logRef, handleRefresh, handleAbort, handleClose } = useUpdate({
 		onSuccess: loadData,
 		onError: (msg) => pushToast(msg, true),
 	});
@@ -93,7 +93,8 @@ function AppContent() {
 					updateStatus={updateStatus}
 					updateLog={updateLog}
 					updateStats={updateStats}
-					noCache={noCache}
+					noTmdbCache={noTmdbCache}
+					noQualityCache={noQualityCache}
 					tick={tick}
 					timestamps={timestamps}
 					logRef={logRef}
@@ -129,6 +130,7 @@ function AppContent() {
 				notifUnread={notifUnread}
 				onNotifRead={onNotifRead}
 				onNotifClear={onNotifClear}
+				qualityData={qualityData}
 			/>
 
 			<main className="flex-1 p-3 sm:p-6 max-w-350 w-full mx-auto">
@@ -175,7 +177,7 @@ function AppContent() {
 						onToast={pushToast}
 					/>
 				)}
-				{tab === "warnings" && <Warnings report={report} error={reportError} loading={!report && !reportError} />}
+				{tab === "warnings" && <Warnings report={report} error={reportError} loading={!report && !reportError} qualityData={qualityData} />}
 				{tab === "quality" && <QualityReport data={qualityData} error={qualityError} loading={qualityLoading} />}
 			</main>
 

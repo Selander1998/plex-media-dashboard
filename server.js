@@ -29,6 +29,7 @@ const QBIT_PASSWORD = process.env.QBIT_PASSWORD || "adminadmin";
 const REPORT_PATH = process.env.REPORT_PATH || join(__dirname, "scripts", "report.json");
 const WATCHLIST_PATH = process.env.WATCHLIST_PATH || join(__dirname, "scripts", "watchlist.json");
 const QUALITY_REPORT_PATH = join(dirname(REPORT_PATH), "quality_report.json");
+const QUALITY_CACHE_PATH = join(dirname(REPORT_PATH), "quality_cache.json");
 const PLEX_BLACKLIST_PATH = join(dirname(REPORT_PATH), "plex_blacklist.json");
 const TMDB_CACHE_PATH = join(dirname(REPORT_PATH), "plex_checker_cache.json");
 const PORT = process.env.PORT || 3000;
@@ -308,7 +309,7 @@ app.post("/api/update", (req, res) => {
 	const send = (payload) => res.write(`data: ${JSON.stringify(payload)}\n\n`);
 
 	const child = spawn("bash", [UPDATE_SCRIPT], {
-		timeout: 300_000,
+		timeout: 3_600_000,
 		env: { ...process.env, PYTHONUNBUFFERED: "1" },
 	});
 	updateChild = child;
@@ -598,6 +599,25 @@ app.get("/api/cache", async (_req, res) => {
 app.delete("/api/cache", async (_req, res) => {
 	try {
 		await unlink(TMDB_CACHE_PATH);
+		res.json({ ok: true });
+	} catch (e) {
+		if (e.code === "ENOENT") return res.json({ ok: true });
+		res.status(500).json({ error: e.message });
+	}
+});
+
+app.get("/api/quality-cache", async (_req, res) => {
+	try {
+		await stat(QUALITY_CACHE_PATH);
+		res.json({ exists: true });
+	} catch {
+		res.json({ exists: false });
+	}
+});
+
+app.delete("/api/quality-cache", async (_req, res) => {
+	try {
+		await unlink(QUALITY_CACHE_PATH);
 		res.json({ ok: true });
 	} catch (e) {
 		if (e.code === "ENOENT") return res.json({ ok: true });

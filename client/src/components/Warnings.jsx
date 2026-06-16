@@ -1,5 +1,49 @@
 import { useLang } from "../LangContext.jsx";
 
+const STRUCTURAL_TYPES = new Set(["corrupt_or_unreadable", "no_video_stream", "no_audio_stream"]);
+
+function issueType(issue) {
+	const colon = issue.indexOf(":");
+	return colon === -1 ? issue : issue.slice(0, colon);
+}
+
+function structuralLabel(issue, t) {
+	const type = issueType(issue);
+	if (type === "corrupt_or_unreadable") return t("quality_issue_corrupt");
+	if (type === "no_video_stream") return t("quality_issue_no_video");
+	if (type === "no_audio_stream") return t("quality_issue_no_audio");
+	if (type === "bad_codec") return `${t("quality_issue_bad_codec")}: ${issue.slice(10).toUpperCase()}`;
+	return issue;
+}
+
+function extractQualityWarnings(qualityData) {
+	const corruptMovies = [], corruptSeries = [], badCodecMovies = [], badCodecSeries = [];
+	for (const [items, corruptList, codecList] of [
+		[qualityData.movies ?? [], corruptMovies, badCodecMovies],
+		[qualityData.series ?? [], corruptSeries, badCodecSeries],
+	]) {
+		for (const item of items) {
+			const corrupt = item.issues.filter((i) => STRUCTURAL_TYPES.has(issueType(i)));
+			const codec = item.issues.filter((i) => issueType(i) === "bad_codec");
+			if (corrupt.length) corruptList.push({ path: item.path, issues: corrupt });
+			if (codec.length) codecList.push({ path: item.path, issues: codec });
+		}
+	}
+	return { corruptMovies, corruptSeries, badCodecMovies, badCodecSeries };
+}
+
+function groupQualityByFolder(items) {
+	const map = {};
+	for (const item of items) {
+		const slash = item.path.indexOf("/");
+		const folder = slash === -1 ? item.path : item.path.slice(0, slash);
+		const file = slash === -1 ? "" : item.path.slice(slash + 1);
+		if (!map[folder]) map[folder] = [];
+		map[folder].push({ file, issues: item.issues });
+	}
+	return Object.entries(map).sort(([a], [b]) => a.localeCompare(b));
+}
+
 function groupByShow(items) {
 	const map = {};
 	for (const item of items) {
@@ -21,7 +65,7 @@ function groupByFolder(items) {
 	return Object.values(map).sort((a, b) => a.folder.localeCompare(b.folder));
 }
 
-export default function Warnings({ report, error, loading }) {
+export default function Warnings({ report, error, loading, qualityData }) {
 	const { t } = useLang();
 
 	if (loading) return <div className="text-center py-12 text-slate-400">{t("loading_report")}</div>;
@@ -41,6 +85,9 @@ export default function Warnings({ report, error, loading }) {
 	const seriesNotOnTmdb = report.series?.not_found_on_tmdb ?? [];
 	const notIndexed = report.plex_sync?.not_indexed ?? [];
 
+	const { corruptMovies, corruptSeries, badCodecMovies, badCodecSeries } =
+		qualityData ? extractQualityWarnings(qualityData) : { corruptMovies: [], corruptSeries: [], badCodecMovies: [], badCodecSeries: [] };
+
 	const total =
 		movieMultiple.length +
 		movieUnneeded.length +
@@ -48,7 +95,11 @@ export default function Warnings({ report, error, loading }) {
 		seriesMultiple.length +
 		seriesUnneeded.length +
 		seriesNotOnTmdb.length +
-		notIndexed.length;
+		notIndexed.length +
+		corruptMovies.length +
+		corruptSeries.length +
+		badCodecMovies.length +
+		badCodecSeries.length;
 
 	if (total === 0) {
 		return <div className="text-center py-12 text-slate-400">{t("no_warnings")}</div>;
@@ -69,6 +120,90 @@ export default function Warnings({ report, error, loading }) {
 							<ul className="text-slate-400 text-[12px] list-disc list-inside">
 								{files.map((f, i) => (
 									<li key={i}>{f}</li>
+								))}
+							</ul>
+						</Row>
+					))}
+				</Section>
+			)}
+
+			{corruptMovies.length > 0 && (
+				<Section title={t("warn_movie_corrupt")} count={corruptMovies.length} colorClass="text-red-500">
+					{groupQualityByFolder(corruptMovies).map(([folder, files]) => (
+						<Row key={folder} label={folder}>
+							<ul className="flex flex-col gap-1">
+								{files.map(({ file, issues }, i) => (
+									<li key={i} className="flex flex-col gap-0.5">
+										{file && <span className="text-slate-500 text-[11px] font-mono">{file}</span>}
+										<div className="flex flex-wrap gap-2">
+											{issues.map((issue, j) => (
+												<span key={j} className="text-red-400 text-[11px]">{structuralLabel(issue, t)}</span>
+											))}
+										</div>
+									</li>
+								))}
+							</ul>
+						</Row>
+					))}
+				</Section>
+			)}
+
+			{corruptSeries.length > 0 && (
+				<Section title={t("warn_series_corrupt")} count={corruptSeries.length} colorClass="text-red-500">
+					{groupQualityByFolder(corruptSeries).map(([folder, files]) => (
+						<Row key={folder} label={folder}>
+							<ul className="flex flex-col gap-1">
+								{files.map(({ file, issues }, i) => (
+									<li key={i} className="flex flex-col gap-0.5">
+										{file && <span className="text-slate-500 text-[11px] font-mono">{file}</span>}
+										<div className="flex flex-wrap gap-2">
+											{issues.map((issue, j) => (
+												<span key={j} className="text-red-400 text-[11px]">{structuralLabel(issue, t)}</span>
+											))}
+										</div>
+									</li>
+								))}
+							</ul>
+						</Row>
+					))}
+				</Section>
+			)}
+
+			{badCodecMovies.length > 0 && (
+				<Section title={t("warn_movie_bad_codec")} count={badCodecMovies.length} colorClass="text-amber-500">
+					{groupQualityByFolder(badCodecMovies).map(([folder, files]) => (
+						<Row key={folder} label={folder}>
+							<ul className="flex flex-col gap-1">
+								{files.map(({ file, issues }, i) => (
+									<li key={i} className="flex flex-col gap-0.5">
+										{file && <span className="text-slate-500 text-[11px] font-mono">{file}</span>}
+										<div className="flex flex-wrap gap-2">
+											{issues.map((issue, j) => (
+												<span key={j} className="text-amber-400 text-[11px]">{structuralLabel(issue, t)}</span>
+											))}
+										</div>
+									</li>
+								))}
+							</ul>
+						</Row>
+					))}
+				</Section>
+			)}
+
+			{badCodecSeries.length > 0 && (
+				<Section title={t("warn_series_bad_codec")} count={badCodecSeries.length} colorClass="text-amber-500">
+					{groupQualityByFolder(badCodecSeries).map(([folder, files]) => (
+						<Row key={folder} label={folder}>
+							<ul className="flex flex-col gap-1">
+								{files.map(({ file, issues }, i) => (
+									<li key={i} className="flex flex-col gap-0.5">
+										{file && <span className="text-slate-500 text-[11px] font-mono">{file}</span>}
+										<div className="flex flex-wrap gap-2">
+											{issues.map((issue, j) => (
+												<span key={j} className="text-amber-400 text-[11px]">{structuralLabel(issue, t)}</span>
+											))}
+										</div>
+									</li>
 								))}
 							</ul>
 						</Row>

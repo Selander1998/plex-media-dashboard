@@ -11,4 +11,7 @@ python3 -u "$SCRIPTS_DIR/plex_checker.py"
 echo "[$(date '+%H:%M:%S')] Running watchlist formatter..."
 python3 -u "$SCRIPTS_DIR/format.py"
 
+echo "[$(date '+%H:%M:%S')] Running quality checker..."
+python3 -u "$SCRIPTS_DIR/quality_checker.py"
+
 echo "[$(date '+%H:%M:%S')] Update complete"

@@ -12,6 +12,7 @@ const TABS = [
 	{ id: "missing_movies", key: "tab_missing_movies" },
 	{ id: "missing_series", key: "tab_missing_series" },
 	{ id: "warnings", key: "tab_warnings" },
+	{ id: "quality", key: "tab_quality" },
 ];
 
 export default function Header({
@@ -41,6 +42,7 @@ export default function Header({
 	notifUnread,
 	onNotifRead,
 	onNotifClear,
+	qualityData,
 }) {
 	const { lang, switchLang, t } = useLang();
 	const locale = lang === "sv" ? "sv-SE" : "en-US";
@@ -342,9 +344,24 @@ const totalSize = (report?.movies?.total_size ?? 0) + (report?.series?.total_siz
 							</span>
 						)}
 
+						{tabDef.id === "quality" && qualityData && (() => {
+							const METRIC = new Set(["low_resolution", "low_video_bitrate", "low_audio_bitrate"]);
+							const hasMetric = (item) => item.issues.some((i) => { const t = i.indexOf(":") === -1 ? i : i.slice(0, i.indexOf(":")); return METRIC.has(t); });
+							const count = (qualityData.movies ?? []).filter(hasMetric).length + (qualityData.series ?? []).filter(hasMetric).length;
+							return count > 0 ? (
+								<span className={`text-[11px] px-1.5 py-px rounded-full min-w-5 text-center ${tab === tabDef.id ? "bg-indigo-500 text-white" : "bg-surface2 text-slate-400"}`}>
+									{count}
+								</span>
+							) : null;
+						})()}
 						{tabDef.id === "warnings" &&
 							report &&
 							(() => {
+								const STRUCTURAL = new Set(["corrupt_or_unreadable", "no_video_stream", "no_audio_stream", "bad_codec"]);
+								const hasStructural = (item) => item.issues.some((i) => { const t = i.indexOf(":") === -1 ? i : i.slice(0, i.indexOf(":")); return STRUCTURAL.has(t); });
+								const qualityWarnings = qualityData
+									? (qualityData.movies ?? []).filter(hasStructural).length + (qualityData.series ?? []).filter(hasStructural).length
+									: 0;
 								const count =
 									(report.movies?.multiple_videos?.length ?? 0) +
 									(report.movies?.unneeded_files?.length ?? 0) +
@@ -352,7 +369,8 @@ const totalSize = (report?.movies?.total_size ?? 0) + (report?.series?.total_siz
 									(report.series?.multiple_videos?.length ?? 0) +
 									(report.series?.unneeded_files?.length ?? 0) +
 									(report.series?.not_found_on_tmdb?.length ?? 0) +
-									(report.plex_sync?.not_indexed?.length ?? 0);
+									(report.plex_sync?.not_indexed?.length ?? 0) +
+									qualityWarnings;
 								return count > 0 ? (
 									<span className={`text-[11px] px-1.5 py-px rounded-full min-w-5 text-center ${tab === tabDef.id ? "bg-indigo-500 text-white" : "bg-surface2 text-slate-400"}`}>
 										{count}
