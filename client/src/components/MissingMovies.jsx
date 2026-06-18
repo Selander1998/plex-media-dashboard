@@ -36,7 +36,7 @@ export default function MissingMovies({
 		return acc;
 	}, {});
 
-	const collections = Object.keys(byCollection).sort();
+const collections = Object.keys(byCollection).sort();
 
 	return (
 		<div>
@@ -65,25 +65,27 @@ export default function MissingMovies({
 					{search ? t("no_missing_movies_search") : t("no_missing_movies")}
 				</div>
 			) : (
-				collections.map((col) => (
-					<div key={col} className="mb-5">
-						<div className="text-[13px] font-semibold text-slate-400 uppercase tracking-[0.6px] mb-3 mt-7 first:mt-0">
-							{col}
+				<div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 items-start">
+					{collections.map((col) => (
+						<div key={col}>
+							<div className="text-[13px] font-semibold text-slate-400 uppercase tracking-[0.6px] mb-3">
+								{col}
+							</div>
+							<div className="bg-surface border border-border rounded-lg overflow-hidden divide-y divide-border">
+								{byCollection[col].map((m) => (
+									<MovieRow
+										key={m.tmdb_id}
+										movie={m}
+										onBlacklist={onBlock}
+										matchedTorrents={findTorrentsForTitle(m.title, torrents)}
+										isNew={newKeys.has(m.tmdb_id ?? m.title)}
+										onToast={onToast}
+									/>
+								))}
+							</div>
 						</div>
-						<div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-2.5">
-							{byCollection[col].map((m) => (
-								<MovieCard
-									key={m.tmdb_id}
-									movie={m}
-									onBlacklist={onBlock}
-									matchedTorrents={findTorrentsForTitle(m.title, torrents)}
-									isNew={newKeys.has(m.tmdb_id ?? m.title)}
-									onToast={onToast}
-								/>
-							))}
-						</div>
-					</div>
-				))
+					))}
+				</div>
 			)}
 
 			{data.multiple_videos?.length > 0 && (
@@ -109,7 +111,7 @@ export default function MissingMovies({
 	);
 }
 
-function MovieCard({ movie, onBlacklist, matchedTorrents = [], isNew = false, onToast }) {
+function MovieRow({ movie, onBlacklist, matchedTorrents = [], isNew = false, onToast }) {
 	const { t } = useLang();
 	const [pending, setPending] = useState(false);
 
@@ -131,33 +133,26 @@ function MovieCard({ movie, onBlacklist, matchedTorrents = [], isNew = false, on
 	}
 
 	return (
-		<div className="bg-surface border border-border rounded-lg px-4 py-3.5 flex flex-col gap-1.5 group">
-			<div className="flex items-start gap-2">
-				<span className="text-sm font-semibold text-slate-200 flex-1 leading-snug">{movie.title}</span>
+		<div className="px-3.5 py-2.5 flex items-center gap-2 group hover:bg-surface2">
+			<span className="text-[13px] text-slate-200 flex-1 min-w-0 leading-snug">{movie.title}</span>
+			<div className="flex items-center gap-1.5 shrink-0">
 				{isNew && (
-					<span className="shrink-0 px-1.5 py-0.5 rounded border text-[10px] font-medium text-teal-400 border-teal-800 bg-teal-950/40">
+					<span className="px-1.5 py-0.5 rounded border text-[10px] font-medium text-teal-400 border-teal-800 bg-teal-950/40">
 						{t("badge_new")}
 					</span>
 				)}
 				{matchedTorrents.map((tor) => {
 					const { label, cls } = torrentBadgeProps(tor, t);
 					return (
-						<span key={tor.hash} className={`shrink-0 px-1.5 py-0.5 rounded border text-[10px] font-medium ${cls}`}>
+						<span key={tor.hash} className={`px-1.5 py-0.5 rounded border text-[10px] font-medium ${cls}`}>
 							{label}
 						</span>
 					);
 				})}
-			</div>
-			<div className="flex items-center justify-between text-xs text-slate-400">
-				<span>
+				<span className="text-[11px] text-slate-500 whitespace-nowrap">
 					{movie.year}
 					{movie.tmdb_id && (
-						<>
-							{" · "}
-							<a href={`https://www.themoviedb.org/movie/${movie.tmdb_id}`} target="_blank" rel="noreferrer">
-								TMDB
-							</a>
-						</>
+						<> · <a href={`https://www.themoviedb.org/movie/${movie.tmdb_id}`} target="_blank" rel="noreferrer" className="hover:text-slate-300">TMDB</a></>
 					)}
 				</span>
 				<button
@@ -167,11 +162,7 @@ function MovieCard({ movie, onBlacklist, matchedTorrents = [], isNew = false, on
 					className="opacity-0 group-hover:opacity-100 transition-opacity w-5 h-5 flex items-center justify-center rounded text-slate-500 hover:text-red-400 hover:bg-surface2 disabled:opacity-30 cursor-pointer"
 				>
 					<svg className="w-3 h-3" viewBox="0 0 20 20" fill="currentColor">
-						<path
-							fillRule="evenodd"
-							d="M13.477 14.89A6 6 0 015.11 6.524l8.367 8.368zm1.414-1.414L6.524 5.11a6 6 0 018.367 8.367zM18 10a8 8 0 11-16 0 8 8 0 0116 0z"
-							clipRule="evenodd"
-						/>
+						<path fillRule="evenodd" d="M13.477 14.89A6 6 0 015.11 6.524l8.367 8.368zm1.414-1.414L6.524 5.11a6 6 0 018.367 8.367zM18 10a8 8 0 11-16 0 8 8 0 0116 0z" clipRule="evenodd" />
 					</svg>
 				</button>
 			</div>
