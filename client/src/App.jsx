@@ -142,6 +142,7 @@ function AppContent() {
 						error={torrentError}
 						onRefresh={fetchTorrents}
 						onToast={pushToast}
+						report={report}
 					/>
 				)}
 				{tab === "watchlist" && (

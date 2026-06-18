@@ -142,7 +142,36 @@ function SpeedSlider({ label, limitBytes, endpoint, colorClass, accentClass, cur
 	);
 }
 
-export default function Torrents({ torrents, transfer, loading, error, onRefresh, onToast }) {
+const norm = (s) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+function buildDiskData(report) {
+	const movies = new Set();
+	const shows = new Set();
+	const missingSeasons = new Set();
+	const missingEpisodes = new Set();
+	for (const { title } of report?.movies?.titles_on_disk ?? []) movies.add(norm(title));
+	for (const { title } of report?.series?.shows_on_disk ?? []) shows.add(norm(title));
+	for (const entry of report?.series?.missing ?? []) {
+		const key = norm(entry.show);
+		if (entry.type === "season_missing") missingSeasons.add(`${key}:${entry.season}`);
+		else if (entry.type === "episode") missingEpisodes.add(`${key}:${entry.season}:${entry.episode}`);
+	}
+	return { movies, shows, missingSeasons, missingEpisodes };
+}
+
+function parseTorrentName(name) {
+	const epMatch = name.match(/^(.+?)\s+S(\d{1,2})E(\d{1,2})(?:\s|$)/i);
+	if (epMatch) return { title: epMatch[1].trim(), season: parseInt(epMatch[2]), episode: parseInt(epMatch[3]) };
+	const sMatch = name.match(/^(.+?)\s+S(\d{1,2})(?:\s|$)/i);
+	if (sMatch) return { title: sMatch[1].trim(), season: parseInt(sMatch[2]), episode: null };
+	const seasonMatch = name.match(/^(.+?)\s+Season\s+(\d+)/i);
+	if (seasonMatch) return { title: seasonMatch[1].trim(), season: parseInt(seasonMatch[2]), episode: null };
+	const movieMatch = name.match(/^(.+?)\s+\(\d{4}\)/);
+	if (movieMatch) return { title: movieMatch[1].trim(), season: null, episode: null };
+	return { title: name, season: null, episode: null };
+}
+
+export default function Torrents({ torrents, transfer, loading, error, onRefresh, onToast, report }) {
 	const { t: tr, lang } = useLang();
 	const locale = lang === "sv" ? "sv-SE" : "en-US";
 
@@ -157,6 +186,19 @@ export default function Torrents({ torrents, transfer, loading, error, onRefresh
 	const [renamingHash, setRenamingHash] = useState(null);
 	const [renameValue, setRenameValue] = useState("");
 	const [expandedGroups, setExpandedGroups] = useState(new Set());
+
+	const diskData = buildDiskData(report);
+	function isOnDisk(torrentName) {
+		const { title, season, episode } = parseTorrentName(torrentName);
+		const key = norm(title);
+		if (season !== null) {
+			if (!diskData.shows.has(key)) return false;
+			if (diskData.missingSeasons.has(`${key}:${season}`)) return false;
+			if (episode !== null && diskData.missingEpisodes.has(`${key}:${season}:${episode}`)) return false;
+			return true;
+		}
+		return diskData.movies.has(key);
+	}
 
 	const COLUMNS = [
 		{ label: tr("col_name"),     key: "name",     defaultDir: "asc",  cls: "" },
@@ -542,7 +584,14 @@ async function handleAction(action, hash) {
 																		className="bg-surface2 border border-indigo-500 rounded px-2 py-0.5 text-[13px] text-slate-200 outline-none w-full"
 																	/>
 																) : (
-																	t.name
+																	<span className="flex flex-col gap-0.5">
+																		<span>{t.name}</span>
+																		{isOnDisk(t.name) && (
+																			<span className="text-[10px] font-medium text-amber-400 bg-amber-400/10 border border-amber-400/30 rounded px-1.5 py-0.5 self-start">
+																				{tr("badge_on_disk")}
+																			</span>
+																		)}
+																	</span>
 																)}
 															</td>
 															<td className="px-3 py-2.5 text-slate-400 text-[13px] group-hover:bg-surface2 hidden sm:table-cell">
