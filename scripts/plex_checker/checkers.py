@@ -203,6 +203,7 @@ def check_series(series_roots, api_key, cache, blacklist, series_filter=None):
 				"total_seasons": 0,
 				"total_episodes": 0,
 				"total_size": 0,
+				"shows_on_disk": [],
 				"missing": [],
 				"multiple_videos": [],
 				"unneeded_files": [],
@@ -539,7 +540,7 @@ def check_plex_sync(plex_url, plex_token, movies_roots, series_roots):
 	# If everything on disk is already indexed, skip the scan entirely
 	if not (disk_files - plex_files):
 		print("  ✓ All disk files indexed by Plex")
-		return {"not_indexed": []}
+		return {"not_indexed": [], "stale": []}
 
 	# New files detected — trigger scan and wait for Plex to index them
 	triggered = 0
@@ -580,4 +581,4 @@ def check_plex_sync(plex_url, plex_token, movies_roots, series_roots):
 	else:
 		print("  ✓ All disk files indexed by Plex")
 
-	return {"not_indexed": not_indexed}
+	return {"not_indexed": not_indexed, "stale": []}

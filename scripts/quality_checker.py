@@ -102,7 +102,7 @@ def check_file(path, resolution_threshold=720, video_bitrate_1080p=0, audio_bitr
         s = str(v or "")
         return int(s) if s.lstrip("-").isdigit() else 0
 
-    if video_bitrate_1080p > 0:
+    if video_bitrate_1080p > 0 and height:
         ratio = next(r for h, r in sorted(VIDEO_BITRATE_RATIOS.items(), reverse=True) if height >= h)
         threshold = int(video_bitrate_1080p * ratio)
         if codec in EFFICIENT_CODECS:

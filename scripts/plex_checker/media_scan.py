@@ -112,7 +112,8 @@ def parse_episode_numbers(name):
 	# 2. Multi-episode absolute format: "Naruto.110-111.", " - 066-067 -"
 	m = re.search(r'(?:^|[ \-._])(\d{2,4}(?:-\d{2,4})+)(?:$|[ \-._\[])', name)
 	if m:
-		eps.update(int(n) for n in m.group(1).split('-'))
+		parts = [int(n) for n in m.group(1).split('-')]
+		eps.update(range(parts[0], parts[-1] + 1))
 		if eps:
 			return eps
 
