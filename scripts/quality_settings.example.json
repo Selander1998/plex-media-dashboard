@@ -1,5 +1,5 @@
 {
-  "resolution_threshold": 480,
+  "resolution_threshold": 720,
   "video_bitrate_1080p": 0,
   "audio_bitrate_min": 0
 }

@@ -20,6 +20,8 @@ scripts/plex_blacklist.json
 scripts/update.log
 scripts/quality_report.json
 scripts/quality_cache.json
+scripts/quality_settings.json
+scripts/server_settings.json
 *.log
 
 # Claude Code project memory

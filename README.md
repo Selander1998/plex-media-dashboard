@@ -12,13 +12,14 @@ This is a self-hosted dashboard for managing a personal media library. Tracks mo
 
 ## Features
 
-- **Torrents** — live qBittorrent monitor with pause/resume/delete/rename, speed display, auto-pause on completion, and magnet paste dialog
+- **Torrents** — live qBittorrent monitor with pause/resume/delete/rename, speed display, auto-pause on completion, and magnet paste dialog; amber badge when a torrent is already on disk
 - **Missing Movies** — lists movies present in your watchlist/collections but absent from disk
 - **Missing Series** — lists missing seasons and episodes per show, grouped and collapsible
 - **Watchlist** — Plex RSS watchlist synced against your library; hides anything already on disk
 - **Warnings** — flags duplicate video files, unneeded extra files, and content not yet indexed by Plex
+- **Quality** — scans your library for files below configurable resolution, video bitrate, and audio bitrate thresholds using `ffprobe`
 - **Stats card** — exportable PNG with collection stats (counts, storage, binge time, and more)
-- **Swedish / English UI** — full i18n, language toggle in the header
+- **Localised UI** — full i18n with a language toggle in the Settings panel; add new languages by dropping a locale JSON file into `client/src/locales/`
 - **Refresh button** — triggers `update.sh` from the UI and reloads the report
 
 ---
@@ -151,7 +152,7 @@ You can hit the **refresh button** in the dashboard header to trigger this from 
 
 3. Run `npm run build` and restart the server.
 
-The new language will appear in the header toggle automatically. The language choice is persisted in `localStorage`.
+The new language will appear in the Settings panel toggle automatically. The language choice is persisted in `localStorage`.
 
 ---
 
@@ -170,34 +171,36 @@ media-dashboard/
 │       ├── exportStats.js     # PNG stats card generator
 │       ├── torrentUtils.js    # Torrent helper utilities
 │       ├── components/
-│       │   ├── Header.jsx         # Sticky header: title, storage info, action buttons, tab nav
-│       │   ├── UpdateModal.jsx    # Overlay shown while update.sh is running
-│       │   ├── PasteModal.jsx     # Magnet-link paste overlay
-│       │   ├── ToastList.jsx      # Fixed-position toast notifications
-│       │   ├── Torrents.jsx       # Torrent list tab
-│       │   ├── Watchlist.jsx      # Plex RSS watchlist tab
-│       │   ├── MissingMovies.jsx  # Missing movies tab
-│       │   ├── MissingSeries.jsx  # Missing series/episodes tab
-│       │   ├── Warnings.jsx       # Library warnings tab
-│       │   └── StatCard.jsx       # Stats card canvas renderer
+│       │   ├── Header.jsx             # Sticky header: title, storage info, action buttons, tab nav
+│       │   ├── UpdateModal.jsx        # Overlay shown while update.sh is running
+│       │   ├── PasteModal.jsx         # Magnet-link paste overlay
+│       │   ├── ToastList.jsx          # Fixed-position toast notifications
+│       │   ├── SettingsPanel.jsx      # Settings dropdown: language, quality thresholds, cache controls
+│       │   ├── NotificationsPanel.jsx # Notification preferences panel
+│       │   ├── Torrents.jsx           # Torrent list tab
+│       │   ├── Watchlist.jsx          # Plex RSS watchlist tab
+│       │   ├── MissingMovies.jsx      # Missing movies tab
+│       │   ├── MissingSeries.jsx      # Missing series/episodes tab
+│       │   ├── Warnings.jsx           # Library warnings tab
+│       │   ├── QualityReport.jsx      # Quality tab: files below bitrate/resolution thresholds
+│       │   └── StatCard.jsx           # Stats card canvas renderer
 │       ├── hooks/
 │       │   ├── useMediaData.js    # Report, watchlist, blacklist fetching and new-item diffing
 │       │   ├── useTorrents.js     # Torrent polling with 5s interval
 │       │   ├── useSavePaths.js    # Save-path list and disk space fetching
 │       │   ├── useUpdate.js       # update.sh streaming, log state, auto-scroll
 │       │   ├── useMagnet.js       # Magnet paste mode and torrent submission
+│       │   ├── useSettings.js     # Persistent UI settings (localStorage)
 │       │   └── useToasts.js       # Toast queue and pushToast helper
 │       ├── utils/
 │       │   ├── format.js      # formatBytes helper
 │       │   └── updateLog.js   # Update log line filtering, stat extraction, and coloring
-│       └── locales/
-│           ├── en.json        # English strings
-│           ├── sv.json        # Swedish strings
-│           ├── gb.svg         # GB flag
-│           └── se.svg         # SE flag
+│       └── locales/           # One JSON file + flag SVG per supported language
 └── scripts/
     ├── update.sh              # Runs plex_checker and format, outputs JSON files
     ├── plex_checker.py        # Entry point: scans library, checks Plex, writes report.json
+    ├── quality_checker.py     # Scans library files with ffprobe, writes quality_report.json
+    ├── quality_settings.example.json  # Quality threshold defaults (copy to quality_settings.json)
     ├── plex_checker/          # Package: library scanning and Plex checking logic
     │   ├── blacklist.py       # Blacklist loading and matching
     │   ├── cache.py           # TMDB response cache (read/write)
