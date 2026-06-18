@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, Fragment } from "react";
+import { useState, useEffect, useRef, useMemo, Fragment } from "react";
 import StatCard from "./StatCard.jsx";
 import { useLang } from "../LangContext.jsx";
 
@@ -187,7 +187,7 @@ export default function Torrents({ torrents, transfer, loading, error, onRefresh
 	const [renameValue, setRenameValue] = useState("");
 	const [expandedGroups, setExpandedGroups] = useState(new Set());
 
-	const diskData = buildDiskData(report);
+	const diskData = useMemo(() => buildDiskData(report), [report]);
 	function isOnDisk(torrentName) {
 		const { title, season, episode } = parseTorrentName(torrentName);
 		const key = norm(title);

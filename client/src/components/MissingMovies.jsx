@@ -74,7 +74,7 @@ const collections = Object.keys(byCollection).sort();
 							<div className="bg-surface border border-border rounded-lg overflow-hidden divide-y divide-border">
 								{byCollection[col].map((m) => (
 									<MovieRow
-										key={m.tmdb_id}
+										key={m.tmdb_id ?? m.title}
 										movie={m}
 										onBlacklist={onBlock}
 										matchedTorrents={findTorrentsForTitle(m.title, torrents)}

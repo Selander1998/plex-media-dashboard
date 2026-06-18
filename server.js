@@ -31,6 +31,7 @@ const WATCHLIST_PATH = process.env.WATCHLIST_PATH || join(__dirname, "scripts", 
 const QUALITY_REPORT_PATH = join(dirname(REPORT_PATH), "quality_report.json");
 const QUALITY_CACHE_PATH = join(dirname(REPORT_PATH), "quality_cache.json");
 const QUALITY_SETTINGS_PATH = join(dirname(REPORT_PATH), "quality_settings.json");
+const SERVER_SETTINGS_PATH = join(dirname(REPORT_PATH), "server_settings.json");
 const PLEX_BLACKLIST_PATH = join(dirname(REPORT_PATH), "plex_blacklist.json");
 const TMDB_CACHE_PATH = join(dirname(REPORT_PATH), "plex_checker_cache.json");
 const PORT = process.env.PORT || 3000;
@@ -522,6 +523,10 @@ app.get("/api/qbit/transfer", async (req, res) => {
 const SEEDING_STATES = new Set(["uploading", "stalledUP", "queuedUP"]);
 const DONE_STATES = new Set(["pausedUP", "stoppedUP", "uploading", "stalledUP"]);
 let autoPauseSeeding = true;
+readFile(SERVER_SETTINGS_PATH, "utf-8").then((d) => {
+	const s = JSON.parse(d);
+	if (typeof s.autoPauseSeeding === "boolean") autoPauseSeeding = s.autoPauseSeeding;
+}).catch(() => {});
 const prevTorrentStates = new Map();
 
 app.get("/api/qbit/auto-pause", (req, res) => {
@@ -532,6 +537,7 @@ app.post("/api/qbit/auto-pause", (req, res) => {
 	const { enabled } = req.body;
 	if (typeof enabled !== "boolean") return res.status(400).json({ error: "enabled required" });
 	autoPauseSeeding = enabled;
+	writeFile(SERVER_SETTINGS_PATH, JSON.stringify({ autoPauseSeeding }, null, 2)).catch(() => {});
 	console.log(`[auto-pause] ${enabled ? "enabled" : "disabled"}`);
 	res.json({ enabled: autoPauseSeeding });
 });
@@ -647,7 +653,9 @@ app.get("/api/quality-settings", async (_req, res) => {
 app.post("/api/quality-settings", async (req, res) => {
 	try {
 		const current = JSON.parse(await readFile(QUALITY_SETTINGS_PATH, "utf-8").catch(() => "{}"));
-		const updated = { ...DEFAULT_QUALITY_SETTINGS, ...current, ...req.body };
+		const ALLOWED = new Set(Object.keys(DEFAULT_QUALITY_SETTINGS));
+		const patch = Object.fromEntries(Object.entries(req.body).filter(([k]) => ALLOWED.has(k)));
+		const updated = { ...DEFAULT_QUALITY_SETTINGS, ...current, ...patch };
 		await writeFile(QUALITY_SETTINGS_PATH, JSON.stringify(updated, null, 2));
 		res.json(updated);
 	} catch (e) {
@@ -665,4 +673,7 @@ app.get("*", (req, res) => {
 
 app.listen(PORT, () => {
 	console.log(`Server running on http://localhost:${PORT}`);
+	if (!DASHBOARD_TOKEN) {
+		console.warn("⚠️  DASHBOARD_TOKEN is not set — the API is unauthenticated. Set it in .env if this server is reachable outside your LAN.");
+	}
 });

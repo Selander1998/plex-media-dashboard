@@ -63,7 +63,7 @@ function AppContent() {
 	const { savePaths, tempPaths, savePathIdx, setSavePathIdx, diskSpace, totalDiskCapacity } = useSavePaths();
 
 	const { refreshing, updateStatus, updateLog, updateStats, noTmdbCache, noQualityCache, tick, timestamps, logRef, handleRefresh, handleAbort, handleClose } = useUpdate({
-		onSuccess: loadData,
+		onSuccess: () => { loadData(); setQualityData(null); },
 		onError: (msg) => pushToast(msg, true),
 	});
 
@@ -88,7 +88,7 @@ function AppContent() {
 
 	return (
 		<div className="min-h-screen flex flex-col overflow-x-hidden">
-			{refreshing && (
+			{(refreshing || updateStatus !== null) && (
 				<UpdateModal
 					updateStatus={updateStatus}
 					updateLog={updateLog}

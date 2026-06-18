@@ -156,7 +156,8 @@ export default function SettingsPanel({ settings, updateSetting, report, locale,
 						<span className={videoBitrate === 0 ? "text-slate-600" : "text-slate-300"}>{videoBitrate === 0 ? t("settings_off") : `${videoBitrate} kbps`}</span>
 					</div>
 					<input type="range" min={0} max={4000} step={100} value={videoBitrate}
-						onChange={(e) => handleVideoBitrate(parseInt(e.target.value))}
+						onChange={(e) => setVideoBitrate(parseInt(e.target.value))}
+						onPointerUp={(e) => handleVideoBitrate(parseInt(e.target.value))}
 						className="w-full accent-indigo-500 cursor-pointer" />
 				</div>
 				<div>
@@ -165,7 +166,8 @@ export default function SettingsPanel({ settings, updateSetting, report, locale,
 						<span className={audioBitrate === 0 ? "text-slate-600" : "text-slate-300"}>{audioBitrate === 0 ? t("settings_off") : `${audioBitrate} kbps`}</span>
 					</div>
 					<input type="range" min={0} max={320} step={8} value={audioBitrate}
-						onChange={(e) => handleAudioBitrate(parseInt(e.target.value))}
+						onChange={(e) => setAudioBitrate(parseInt(e.target.value))}
+						onPointerUp={(e) => handleAudioBitrate(parseInt(e.target.value))}
 						className="w-full accent-indigo-500 cursor-pointer" />
 				</div>
 			</div>
