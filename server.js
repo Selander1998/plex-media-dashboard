@@ -30,6 +30,7 @@ const REPORT_PATH = process.env.REPORT_PATH || join(__dirname, "scripts", "repor
 const WATCHLIST_PATH = process.env.WATCHLIST_PATH || join(__dirname, "scripts", "watchlist.json");
 const QUALITY_REPORT_PATH = join(dirname(REPORT_PATH), "quality_report.json");
 const QUALITY_CACHE_PATH = join(dirname(REPORT_PATH), "quality_cache.json");
+const QUALITY_SETTINGS_PATH = join(dirname(REPORT_PATH), "quality_settings.json");
 const PLEX_BLACKLIST_PATH = join(dirname(REPORT_PATH), "plex_blacklist.json");
 const TMDB_CACHE_PATH = join(dirname(REPORT_PATH), "plex_checker_cache.json");
 const PORT = process.env.PORT || 3000;
@@ -311,6 +312,7 @@ app.post("/api/update", (req, res) => {
 	const child = spawn("bash", [UPDATE_SCRIPT], {
 		timeout: 3_600_000,
 		env: { ...process.env, PYTHONUNBUFFERED: "1" },
+		detached: true,
 	});
 	updateChild = child;
 	let tail = "";
@@ -357,7 +359,11 @@ app.post("/api/update/abort", (req, res) => {
 		return res.status(409).json({ error: "No update running" });
 	}
 	updateAborted = true;
-	updateChild.kill("SIGTERM");
+	try {
+		process.kill(-updateChild.pid, "SIGTERM");
+	} catch {
+		updateChild.kill("SIGTERM");
+	}
 	res.json({ ok: true });
 });
 
@@ -589,8 +595,9 @@ app.post("/api/notify", async (req, res) => {
 
 app.get("/api/cache", async (_req, res) => {
 	try {
-		await stat(TMDB_CACHE_PATH);
-		res.json({ exists: true });
+		const s = await stat(TMDB_CACHE_PATH);
+		const ageDays = Math.floor((Date.now() - s.mtimeMs) / 86_400_000);
+		res.json({ exists: true, ageDays });
 	} catch {
 		res.json({ exists: false });
 	}
@@ -608,8 +615,9 @@ app.delete("/api/cache", async (_req, res) => {
 
 app.get("/api/quality-cache", async (_req, res) => {
 	try {
-		await stat(QUALITY_CACHE_PATH);
-		res.json({ exists: true });
+		const s = await stat(QUALITY_CACHE_PATH);
+		const ageDays = Math.floor((Date.now() - s.mtimeMs) / 86_400_000);
+		res.json({ exists: true, ageDays });
 	} catch {
 		res.json({ exists: false });
 	}
@@ -621,6 +629,28 @@ app.delete("/api/quality-cache", async (_req, res) => {
 		res.json({ ok: true });
 	} catch (e) {
 		if (e.code === "ENOENT") return res.json({ ok: true });
+		res.status(500).json({ error: e.message });
+	}
+});
+
+const DEFAULT_QUALITY_SETTINGS = { resolution_threshold: 720, video_bitrate_1080p: 0, audio_bitrate_min: 0 };
+
+app.get("/api/quality-settings", async (_req, res) => {
+	try {
+		const data = JSON.parse(await readFile(QUALITY_SETTINGS_PATH, "utf-8"));
+		res.json({ ...DEFAULT_QUALITY_SETTINGS, ...data });
+	} catch {
+		res.json(DEFAULT_QUALITY_SETTINGS);
+	}
+});
+
+app.post("/api/quality-settings", async (req, res) => {
+	try {
+		const current = JSON.parse(await readFile(QUALITY_SETTINGS_PATH, "utf-8").catch(() => "{}"));
+		const updated = { ...DEFAULT_QUALITY_SETTINGS, ...current, ...req.body };
+		await writeFile(QUALITY_SETTINGS_PATH, JSON.stringify(updated, null, 2));
+		res.json(updated);
+	} catch (e) {
 		res.status(500).json({ error: e.message });
 	}
 });

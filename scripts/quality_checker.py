@@ -2,13 +2,14 @@
 """
 Media Quality Checker
 Scans movie and series directories with ffprobe and flags files with:
-  - Low resolution (below 720p)
+  - Low resolution (configurable threshold)
   - Bad/legacy video codecs (xvid, divx, mpeg2, etc.)
-  - Low video bitrate for resolution
-  - Low audio bitrate or missing audio
+  - Low video bitrate (configurable, 1080p reference)
+  - Low audio bitrate (configurable)
+  - Missing audio stream
   - Corrupt/unreadable files
 
-Results are cached by file mtime+size so repeat runs only scan changed files.
+Results are cached by file mtime+size. Cache auto-invalidates when settings change.
 """
 
 import os
@@ -24,14 +25,22 @@ load_dotenv(_script_dir.parent / ".env")
 
 OUTPUT_PATH = _script_dir / "quality_report.json"
 CACHE_PATH = _script_dir / "quality_cache.json"
+SETTINGS_PATH = _script_dir / "quality_settings.json"
 
 VIDEO_EXTENSIONS = {".mkv", ".mp4", ".avi", ".mov", ".wmv", ".m4v", ".ts", ".m2ts"}
 
 BAD_CODECS = {"mpeg1video", "mpeg2video", "h263", "xvid", "divx", "wmv1", "wmv2", "rv10", "rv20", "msmpeg4v2", "msmpeg4v3"}
-
-# Thresholds in kbps for x264/AVC; halved automatically for efficient codecs (x265/HEVC, AV1, VP9)
-BITRATE_THRESHOLDS = {2160: 8000, 1080: 2000, 720: 800, 0: 400}
 EFFICIENT_CODECS = {"hevc", "h265", "x265", "av1", "vp9"}
+
+# Scaling ratios relative to 1080p threshold
+VIDEO_BITRATE_RATIOS = {2160: 4.0, 1080: 1.0, 720: 0.4, 0: 0.2}
+
+
+def load_settings():
+    try:
+        return json.loads(SETTINGS_PATH.read_text())
+    except Exception:
+        return {}
 
 
 def load_cache():
@@ -65,7 +74,7 @@ def ffprobe(path):
         return None, str(e)
 
 
-def check_file(path):
+def check_file(path, resolution_threshold=720, video_bitrate_1080p=0, audio_bitrate_min=0):
     data, err = ffprobe(path)
     if err or not data:
         return ["corrupt_or_unreadable"]
@@ -86,28 +95,33 @@ def check_file(path):
 
     width = video.get("width", 0)
     height = video.get("height", 0)
-    if height and height < 480:
+    if height and height < resolution_threshold:
         issues.append(f"low_resolution:{width}x{height}")
 
-    video_bitrate = int(video.get("bit_rate", 0) or fmt.get("bit_rate", 0) or 0) // 1000
-    if video_bitrate > 0:
-        threshold = next(t for h, t in sorted(BITRATE_THRESHOLDS.items(), reverse=True) if height >= h)
+    if video_bitrate_1080p > 0:
+        ratio = next(r for h, r in sorted(VIDEO_BITRATE_RATIOS.items(), reverse=True) if height >= h)
+        threshold = int(video_bitrate_1080p * ratio)
         if codec in EFFICIENT_CODECS:
             threshold //= 2
-        if video_bitrate < threshold:
+        video_bitrate = int(video.get("bit_rate", 0) or fmt.get("bit_rate", 0) or 0) // 1000
+        if video_bitrate > 0 and video_bitrate < threshold:
             issues.append(f"low_video_bitrate:{video_bitrate}kbps")
 
     if not audio:
         issues.append("no_audio_stream")
-    else:
+    elif audio_bitrate_min > 0:
         audio_bitrate = int(audio.get("bit_rate", 0) or 0) // 1000
-        if audio_bitrate > 0 and audio_bitrate < 64:
+        if audio_bitrate > 0 and audio_bitrate < audio_bitrate_min:
             issues.append(f"low_audio_bitrate:{audio_bitrate}kbps")
 
     return issues
 
 
-def scan_directories(roots, label, cache, total_files, scanned_so_far):
+def scan_directories(roots, label, cache, total_files, scanned_so_far, settings):
+    resolution_threshold = settings["resolution_threshold"]
+    video_bitrate_1080p = settings["video_bitrate_1080p"]
+    audio_bitrate_min = settings["audio_bitrate_min"]
+
     results = []
     files = []
     for root in roots:
@@ -129,7 +143,7 @@ def scan_directories(roots, label, cache, total_files, scanned_so_far):
         if path_str in cache and cache[path_str]["key"] == key:
             issues = cache[path_str]["issues"]
         else:
-            issues = check_file(f)
+            issues = check_file(f, resolution_threshold, video_bitrate_1080p, audio_bitrate_min)
             cache[path_str] = {"key": key, "issues": issues}
 
         if issues:
@@ -147,9 +161,25 @@ def main():
         print("ERROR: No MOVIES_ROOTS or SERIES_ROOTS set in .env")
         raise SystemExit(1)
 
-    cache = load_cache()
+    raw = load_settings()
+    settings = {
+        "resolution_threshold": int(raw.get("resolution_threshold", 720)),
+        "video_bitrate_1080p": int(raw.get("video_bitrate_1080p", 0)),
+        "audio_bitrate_min": int(raw.get("audio_bitrate_min", 0)),
+    }
+    print(
+        f"Quality settings: resolution <{settings['resolution_threshold']}p"
+        + (f", video <{settings['video_bitrate_1080p']}kbps@1080p" if settings["video_bitrate_1080p"] else "")
+        + (f", audio <{settings['audio_bitrate_min']}kbps" if settings["audio_bitrate_min"] else ""),
+        flush=True,
+    )
 
-    # Count total files first for progress reporting
+    cache = load_cache()
+    if cache.get("_settings") != settings:
+        print("Settings changed — clearing per-file cache for fresh scan.", flush=True)
+        cache = {}
+    cache["_settings"] = settings
+
     all_roots = [(Path(r), "movie") for r in movies_roots] + [(Path(r), "series") for r in series_roots]
     total = sum(
         sum(1 for p in root.rglob("*") if p.suffix.lower() in VIDEO_EXTENSIONS)
@@ -162,12 +192,12 @@ def main():
     scanned = 0
 
     print("Checking movies...", flush=True)
-    movie_results, n = scan_directories(movies_roots, "movie", cache, total, scanned)
+    movie_results, n = scan_directories(movies_roots, "movie", cache, total, scanned, settings)
     report["movies"] = movie_results
     scanned += n
 
     print("Checking series...", flush=True)
-    series_results, n = scan_directories(series_roots, "series", cache, total, scanned)
+    series_results, n = scan_directories(series_roots, "series", cache, total, scanned, settings)
     report["series"] = series_results
 
     save_cache(cache)

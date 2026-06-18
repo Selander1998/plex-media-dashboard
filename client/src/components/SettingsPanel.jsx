@@ -15,7 +15,45 @@ export default function SettingsPanel({ settings, updateSetting, report, locale,
 	const { lang, switchLang, t } = useLang();
 	const [cacheStatus, setCacheStatus] = useState(null);
 	const [qualityCacheStatus, setQualityCacheStatus] = useState(null);
+	const [cacheAge, setCacheAge] = useState(null);
+	const [qualityCacheAge, setQualityCacheAge] = useState(null);
+	const [resolutionThreshold, setResolutionThreshold] = useState(720);
+	const [videoBitrate, setVideoBitrate] = useState(0);
+	const [audioBitrate, setAudioBitrate] = useState(0);
 	const [autoPause, setAutoPause] = useState(false);
+
+	useEffect(() => {
+		fetch("/api/cache").then((r) => r.json()).then((d) => setCacheAge(d.ageDays ?? null)).catch(() => {});
+		fetch("/api/quality-cache").then((r) => r.json()).then((d) => setQualityCacheAge(d.ageDays ?? null)).catch(() => {});
+		fetch("/api/quality-settings").then((r) => r.json()).then((d) => {
+			setResolutionThreshold(d.resolution_threshold ?? 720);
+			setVideoBitrate(d.video_bitrate_1080p ?? 0);
+			setAudioBitrate(d.audio_bitrate_min ?? 0);
+		}).catch(() => {});
+	}, []);
+
+	async function saveQualitySettings(patch) {
+		await fetch("/api/quality-settings", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify(patch),
+		}).catch(() => {});
+	}
+
+	function handleResolutionThreshold(value) {
+		setResolutionThreshold(value);
+		saveQualitySettings({ resolution_threshold: value });
+	}
+
+	function handleVideoBitrate(value) {
+		setVideoBitrate(value);
+		saveQualitySettings({ video_bitrate_1080p: value });
+	}
+
+	function handleAudioBitrate(value) {
+		setAudioBitrate(value);
+		saveQualitySettings({ audio_bitrate_min: value });
+	}
 
 	useEffect(() => {
 		fetch("/api/qbit/auto-pause")
@@ -33,6 +71,14 @@ export default function SettingsPanel({ settings, updateSetting, report, locale,
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({ enabled: next }),
 		});
+	}
+
+	function ageLabel(days) {
+		if (days == null) return null;
+		if (days === 0) return { text: t("cache_age_today"), cls: "text-slate-500" };
+		const text = t("cache_age_days", { n: days });
+		const cls = days >= 30 ? "text-red-400" : days >= 14 ? "text-amber-400" : "text-slate-500";
+		return { text, cls };
 	}
 
 	async function handleClearQualityCache() {
@@ -85,6 +131,46 @@ export default function SettingsPanel({ settings, updateSetting, report, locale,
 			</div>
 
 			<div>
+				<p className="text-xs text-slate-500 mb-2">{t("settings_quality_threshold")}</p>
+				<div className="flex gap-1">
+					{[480, 720, 1080].map((p) => (
+						<button
+							key={p}
+							onClick={() => handleResolutionThreshold(p)}
+							className={`px-2.5 py-1 text-xs rounded cursor-pointer transition-colors ${
+								resolutionThreshold === p
+									? "bg-indigo-600 text-white"
+									: "bg-surface2 text-slate-400 hover:text-slate-200"
+							}`}
+						>
+							{p}p
+						</button>
+					))}
+				</div>
+			</div>
+
+			<div className="flex flex-col gap-3">
+				<div>
+					<div className="flex justify-between text-xs text-slate-500 mb-1">
+						<span>{t("settings_video_bitrate")}</span>
+						<span className={videoBitrate === 0 ? "text-slate-600" : "text-slate-300"}>{videoBitrate === 0 ? t("settings_off") : `${videoBitrate} kbps`}</span>
+					</div>
+					<input type="range" min={0} max={4000} step={100} value={videoBitrate}
+						onChange={(e) => handleVideoBitrate(parseInt(e.target.value))}
+						className="w-full accent-indigo-500 cursor-pointer" />
+				</div>
+				<div>
+					<div className="flex justify-between text-xs text-slate-500 mb-1">
+						<span>{t("settings_audio_bitrate")}</span>
+						<span className={audioBitrate === 0 ? "text-slate-600" : "text-slate-300"}>{audioBitrate === 0 ? t("settings_off") : `${audioBitrate} kbps`}</span>
+					</div>
+					<input type="range" min={0} max={320} step={8} value={audioBitrate}
+						onChange={(e) => handleAudioBitrate(parseInt(e.target.value))}
+						className="w-full accent-indigo-500 cursor-pointer" />
+				</div>
+			</div>
+
+			<div>
 				<p className="text-xs text-slate-500 mb-2">{t("settings_refresh")}</p>
 				<div className="flex gap-1">
 					{INTERVALS.map(({ value, label }) => (
@@ -125,30 +211,40 @@ export default function SettingsPanel({ settings, updateSetting, report, locale,
 						{t("export_stats_title")}
 					</button>
 				)}
-				<button
-					onClick={handleClearCache}
-					disabled={cacheStatus === "loading"}
-					className={`flex items-center gap-2 text-xs cursor-pointer transition-colors disabled:opacity-40 ${
-						cacheStatus === "ok" ? "text-green-400" : cacheStatus === "error" ? "text-red-400" : "text-slate-400 hover:text-slate-200"
-					}`}
-				>
-					<svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 20 20" fill="currentColor">
-						<path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-					</svg>
-					{cacheStatus === "ok" ? t("toast_cache_cleared") : cacheStatus === "error" ? t("toast_cache_clear_failed") : t("clear_cache_title")}
-				</button>
-				<button
-					onClick={handleClearQualityCache}
-					disabled={qualityCacheStatus === "loading"}
-					className={`flex items-center gap-2 text-xs cursor-pointer transition-colors disabled:opacity-40 ${
-						qualityCacheStatus === "ok" ? "text-green-400" : qualityCacheStatus === "error" ? "text-red-400" : "text-slate-400 hover:text-slate-200"
-					}`}
-				>
-					<svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 20 20" fill="currentColor">
-						<path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-					</svg>
-					{qualityCacheStatus === "ok" ? t("toast_quality_cache_cleared") : qualityCacheStatus === "error" ? t("toast_quality_cache_clear_failed") : t("clear_quality_cache_title")}
-				</button>
+				<div className="flex items-center justify-between gap-2">
+					<button
+						onClick={handleClearCache}
+						disabled={cacheStatus === "loading"}
+						className={`flex items-center gap-2 text-xs cursor-pointer transition-colors disabled:opacity-40 ${
+							cacheStatus === "ok" ? "text-green-400" : cacheStatus === "error" ? "text-red-400" : "text-slate-400 hover:text-slate-200"
+						}`}
+					>
+						<svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+							<path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+						</svg>
+						{cacheStatus === "ok" ? t("toast_cache_cleared") : cacheStatus === "error" ? t("toast_cache_clear_failed") : t("clear_cache_title")}
+					</button>
+					{cacheStatus == null && ageLabel(cacheAge) && (
+						<span className={`text-[11px] ${ageLabel(cacheAge).cls}`}>{ageLabel(cacheAge).text}</span>
+					)}
+				</div>
+				<div className="flex items-center justify-between gap-2">
+					<button
+						onClick={handleClearQualityCache}
+						disabled={qualityCacheStatus === "loading"}
+						className={`flex items-center gap-2 text-xs cursor-pointer transition-colors disabled:opacity-40 ${
+							qualityCacheStatus === "ok" ? "text-green-400" : qualityCacheStatus === "error" ? "text-red-400" : "text-slate-400 hover:text-slate-200"
+						}`}
+					>
+						<svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+							<path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+						</svg>
+						{qualityCacheStatus === "ok" ? t("toast_quality_cache_cleared") : qualityCacheStatus === "error" ? t("toast_quality_cache_clear_failed") : t("clear_quality_cache_title")}
+					</button>
+					{qualityCacheStatus == null && ageLabel(qualityCacheAge) && (
+						<span className={`text-[11px] ${ageLabel(qualityCacheAge).cls}`}>{ageLabel(qualityCacheAge).text}</span>
+					)}
+				</div>
 			</div>
 		</div>
 	);

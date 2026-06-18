@@ -42,16 +42,13 @@ function sortValue(item, filter) {
 		const issue = item.issues.find((i) => i.startsWith(filter + ":"));
 		return issue ? parseInt(issue.replace(/[^0-9]/g, "")) : Infinity;
 	}
-	if (filter === "low_resolution") {
-		const issue = item.issues.find((i) => i.startsWith("low_resolution:"));
-		if (!issue) return Infinity;
-		const [w, h] = issue.slice(15).split("x").map(Number);
-		return w * h;
-	}
-	return item.issues.length;
+	const issue = item.issues.find((i) => i.startsWith("low_resolution:"));
+	if (!issue) return Infinity;
+	const [w, h] = issue.slice(15).split("x").map(Number);
+	return w * h;
 }
 
-const SORTABLE_FILTERS = new Set(["low_video_bitrate", "low_audio_bitrate", "low_resolution"]);
+const SORTABLE_FILTERS = new Set(["low_resolution", "low_video_bitrate", "low_audio_bitrate"]);
 
 function filterItems(items, filter, sortDir) {
 	const filtered = filter === "all"
