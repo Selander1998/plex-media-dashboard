@@ -98,19 +98,23 @@ def check_file(path, resolution_threshold=720, video_bitrate_1080p=0, audio_bitr
     if height and height < resolution_threshold:
         issues.append(f"low_resolution:{width}x{height}")
 
+    def _to_int(v):
+        s = str(v or "")
+        return int(s) if s.lstrip("-").isdigit() else 0
+
     if video_bitrate_1080p > 0:
         ratio = next(r for h, r in sorted(VIDEO_BITRATE_RATIOS.items(), reverse=True) if height >= h)
         threshold = int(video_bitrate_1080p * ratio)
         if codec in EFFICIENT_CODECS:
             threshold //= 2
-        video_bitrate = int(video.get("bit_rate", 0) or fmt.get("bit_rate", 0) or 0) // 1000
+        video_bitrate = _to_int(video.get("bit_rate") or fmt.get("bit_rate")) // 1000
         if video_bitrate > 0 and video_bitrate < threshold:
             issues.append(f"low_video_bitrate:{video_bitrate}kbps")
 
     if not audio:
         issues.append("no_audio_stream")
     elif audio_bitrate_min > 0:
-        audio_bitrate = int(audio.get("bit_rate", 0) or 0) // 1000
+        audio_bitrate = _to_int(audio.get("bit_rate")) // 1000
         if audio_bitrate > 0 and audio_bitrate < audio_bitrate_min:
             issues.append(f"low_audio_bitrate:{audio_bitrate}kbps")
 
