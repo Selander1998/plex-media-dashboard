@@ -1,6 +1,30 @@
 import { useLang } from "../LangContext.jsx";
 import { updateLogLineClass } from "../utils/updateLog.js";
 
+function failedPhase(ts, t) {
+	if (!ts.moviesStart) return t("phase_startup");
+	if (!ts.showsStart) return t("phase_movies");
+	if (!ts.plexStart && !ts.watchlistStart) return t("phase_series");
+	if (!ts.watchlistStart) return t("phase_plex");
+	if (!ts.qualityStart) return t("phase_watchlist");
+	return t("phase_quality");
+}
+
+function UpdateErrorContext({ updateLog, ts, t }) {
+	const phase = failedPhase(ts, t);
+	const errorLines = updateLog
+		.filter((line) => /[✗✕]/.test(line) || /^ERROR/.test(line.trim()))
+		.slice(-3);
+	return (
+		<div className="bg-red-500/10 border border-red-800 rounded-lg px-3 py-2.5 flex flex-col gap-1.5">
+			<span className="text-[11px] text-red-400 font-medium">{t("update_failed_during", { phase })}</span>
+			{errorLines.map((line, i) => (
+				<span key={i} className="text-[11px] font-mono text-red-300 leading-relaxed">{line}</span>
+			))}
+		</div>
+	);
+}
+
 function secs(start, end) {
 	if (!start) return null;
 	return Math.floor(((end ?? Date.now()) - start) / 1000);
@@ -74,6 +98,9 @@ export default function UpdateModal({ updateStatus, updateLog, updateStats, noTm
 						</div>
 					)}
 				</div>
+
+				{/* Error context — which phase failed + last error lines from log */}
+				{updateStatus === "error" && <UpdateErrorContext updateLog={updateLog} ts={ts} t={t} />}
 
 				{/* Stats pills — always visible */}
 				<div className="flex gap-2 flex-wrap">
