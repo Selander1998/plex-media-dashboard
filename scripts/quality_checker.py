@@ -14,9 +14,11 @@ Results are cached by file mtime+size. Cache auto-invalidates when settings chan
 
 import os
 import json
+import threading
 import subprocess
 from pathlib import Path
 from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dotenv import load_dotenv
 
 _script_dir = Path(__file__).parent
@@ -121,12 +123,14 @@ def check_file(path, resolution_threshold=720, video_bitrate_1080p=0, audio_bitr
     return issues
 
 
+WORKERS = min(os.cpu_count() or 4, 8)
+
+
 def scan_directories(roots, label, cache, total_files, scanned_so_far, settings):
     resolution_threshold = settings["resolution_threshold"]
     video_bitrate_1080p = settings["video_bitrate_1080p"]
     audio_bitrate_min = settings["audio_bitrate_min"]
 
-    results = []
     files = []
     for root in roots:
         root = Path(root)
@@ -134,25 +138,37 @@ def scan_directories(roots, label, cache, total_files, scanned_so_far, settings)
             print(f"  ! Skipping missing root: {root}", flush=True)
             continue
         files += [(root, p) for p in root.rglob("*") if p.suffix.lower() in VIDEO_EXTENSIONS]
+    files.sort(key=lambda x: x[1])
 
     print(f"  Found {len(files)} {label} files", flush=True)
 
-    for i, (root, f) in enumerate(sorted(files)):
-        idx = scanned_so_far + i + 1
-        print(f"[PROGRESS] quality {idx}/{total_files}", flush=True)
+    lock = threading.Lock()
+    counter = [scanned_so_far]
+    results = []
 
+    def process(root, f):
         key = cache_key(f)
         path_str = str(f)
-
-        if path_str in cache and cache[path_str]["key"] == key:
-            issues = cache[path_str]["issues"]
+        entry = cache.get(path_str)
+        if entry and entry["key"] == key:
+            issues = entry["issues"]
         else:
             issues = check_file(f, resolution_threshold, video_bitrate_1080p, audio_bitrate_min)
-            cache[path_str] = {"key": key, "issues": issues}
-
+            with lock:
+                cache[path_str] = {"key": key, "issues": issues}
+        with lock:
+            counter[0] += 1
+            print(f"[PROGRESS] quality {counter[0]}/{total_files}", flush=True)
         if issues:
-            rel = str(f.relative_to(root))
-            results.append({"path": rel, "full_path": path_str, "issues": issues})
+            return {"path": str(f.relative_to(root)), "full_path": path_str, "issues": issues}
+        return None
+
+    with ThreadPoolExecutor(max_workers=WORKERS) as executor:
+        futures = [executor.submit(process, root, f) for root, f in files]
+        for future in as_completed(futures):
+            result = future.result()
+            if result:
+                results.append(result)
 
     return results, len(files)
 
