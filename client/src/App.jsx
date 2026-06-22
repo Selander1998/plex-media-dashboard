@@ -70,7 +70,7 @@ function AppContent() {
 	const { addStatus, pasteMode, setPasteMode, pasteRef, handleAddTorrent, handlePasteInput } = useMagnet({
 		savePaths,
 		savePathIdx,
-		onSuccess: (name) => pushToast(name),
+		onSuccess: (msg) => pushToast(msg),
 		onError: (msg) => pushToast(msg, true),
 	});
 

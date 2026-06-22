@@ -92,7 +92,7 @@ export default function Warnings({ report, error, loading, qualityData, onToast 
 			});
 			if (!res.ok) throw new Error((await res.json()).error ?? res.statusText);
 			setDeletedPaths((prev) => new Set(prev).add(full_path));
-			onToast?.(t("toast_file_deleted"));
+			onToast?.(t("toast_file_deleted", { name: full_path.split("/").pop() }));
 		} catch (err) {
 			onToast?.(err.message, true);
 		}

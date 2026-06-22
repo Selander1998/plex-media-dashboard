@@ -288,10 +288,10 @@ async function handleAction(action, hash) {
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ hash, name }),
 			});
-			onToast?.(name);
+			onToast?.(tr("toast_renamed", { name }));
 			setTimeout(onRefresh, 500);
 		} catch {
-			onToast?.(tr("toast_rename_failed"), true);
+			onToast?.(tr("toast_rename_failed", { name }), true);
 		}
 	}
 

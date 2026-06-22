@@ -28,7 +28,7 @@ export function useMagnet({ savePaths, savePathIdx, onSuccess, onError } = {}) {
 			const data = await res.json();
 			if (!res.ok) throw new Error();
 			setAddStatus("ok");
-			onSuccess?.(data.name);
+			onSuccess?.(tRef.current("toast_torrent_added", { name: data.name }));
 		} catch {
 			setAddStatus("error");
 			onError?.(tRef.current("toast_add_failed"));
