@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useLang } from "../LangContext.jsx";
 
 const STRUCTURAL_TYPES = new Set(["corrupt_or_unreadable", "no_video_stream", "no_audio_stream"]);
@@ -25,8 +26,8 @@ function extractQualityWarnings(qualityData) {
 		for (const item of items) {
 			const corrupt = item.issues.filter((i) => STRUCTURAL_TYPES.has(issueType(i)));
 			const codec = item.issues.filter((i) => issueType(i) === "bad_codec");
-			if (corrupt.length) corruptList.push({ path: item.path, issues: corrupt });
-			if (codec.length) codecList.push({ path: item.path, issues: codec });
+			if (corrupt.length) corruptList.push({ path: item.path, full_path: item.full_path, issues: corrupt });
+			if (codec.length) codecList.push({ path: item.path, full_path: item.full_path, issues: codec });
 		}
 	}
 	return { corruptMovies, corruptSeries, badCodecMovies, badCodecSeries };
@@ -46,7 +47,7 @@ function groupQualityByFolder(items) {
 		const folder = slash === -1 ? item.path : item.path.slice(0, slash);
 		const file = slash === -1 ? "" : item.path.slice(slash + 1);
 		if (!map[folder]) map[folder] = [];
-		map[folder].push({ file, issues: item.issues });
+		map[folder].push({ file, full_path: item.full_path, issues: item.issues });
 	}
 	return Object.entries(map).sort(([a], [b]) => a.localeCompare(b));
 }
@@ -72,8 +73,30 @@ function groupByFolder(items) {
 	return Object.values(map).sort((a, b) => a.folder.localeCompare(b.folder));
 }
 
-export default function Warnings({ report, error, loading, qualityData }) {
+export default function Warnings({ report, error, loading, qualityData, onToast }) {
 	const { t } = useLang();
+	const [pendingDelete, setPendingDelete] = useState(null);
+	const [deletedPaths, setDeletedPaths] = useState(new Set());
+
+	async function handleDeleteFile(full_path) {
+		if (pendingDelete !== full_path) {
+			setPendingDelete(full_path);
+			return;
+		}
+		setPendingDelete(null);
+		try {
+			const res = await fetch("/api/quality-file", {
+				method: "DELETE",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ full_path }),
+			});
+			if (!res.ok) throw new Error((await res.json()).error ?? res.statusText);
+			setDeletedPaths((prev) => new Set(prev).add(full_path));
+			onToast?.(t("toast_file_deleted"));
+		} catch (err) {
+			onToast?.(err.message, true);
+		}
+	}
 
 	if (loading) return <div className="text-center py-12 text-slate-400">{t("loading_report")}</div>;
 	if (error)
@@ -138,14 +161,17 @@ export default function Warnings({ report, error, loading, qualityData }) {
 				<Section title={t("warn_movie_corrupt")} count={corruptMovies.length} colorClass="text-red-500">
 					{groupQualityByFolder(corruptMovies).map(([folder, files]) => (
 						<Row key={folder} label={folder}>
-							<ul className="flex flex-col gap-1">
-								{files.map(({ file, issues }, i) => (
+							<ul className="flex flex-col gap-1.5">
+								{files.filter(({ full_path }) => !deletedPaths.has(full_path)).map(({ file, full_path, issues }, i) => (
 									<li key={i} className="flex flex-col gap-0.5">
 										{file && <span className="text-slate-500 text-[11px] font-mono">{file}</span>}
-										<div className="flex flex-wrap gap-2">
-											{issues.map((issue, j) => (
-												<span key={j} className="text-red-400 text-[11px]">{structuralLabel(issue, t)}</span>
-											))}
+										<div className="flex items-center gap-3">
+											<div className="flex flex-wrap gap-2">
+												{issues.map((issue, j) => (
+													<span key={j} className="text-red-400 text-[11px]">{structuralLabel(issue, t)}</span>
+												))}
+											</div>
+											<DeleteButton full_path={full_path} pending={pendingDelete === full_path} onDelete={handleDeleteFile} />
 										</div>
 									</li>
 								))}
@@ -160,7 +186,7 @@ export default function Warnings({ report, error, loading, qualityData }) {
 					{groupQualityByFolder(corruptSeries).map(([folder, files]) => (
 						<Row key={folder} label={folder}>
 							<ul className="flex flex-col gap-1.5">
-								{files.map(({ file, issues }, i) => {
+								{files.filter(({ full_path }) => !deletedPaths.has(full_path)).map(({ file, full_path, issues }, i) => {
 									const epTag = file ? extractEpisodeTag(file) : null;
 									const basename = file ? file.slice(file.lastIndexOf("/") + 1) : null;
 									return (
@@ -169,10 +195,13 @@ export default function Warnings({ report, error, loading, qualityData }) {
 												{epTag && <span className="text-slate-200 font-mono text-[11px] bg-surface2 border border-border px-1.5 py-0.5 rounded shrink-0">{epTag}</span>}
 												{basename && <span className="text-slate-500 text-[11px] font-mono truncate">{basename}</span>}
 											</div>
-											<div className="flex flex-wrap gap-2">
-												{issues.map((issue, j) => (
-													<span key={j} className="text-red-400 text-[11px]">{structuralLabel(issue, t)}</span>
-												))}
+											<div className="flex items-center gap-3">
+												<div className="flex flex-wrap gap-2">
+													{issues.map((issue, j) => (
+														<span key={j} className="text-red-400 text-[11px]">{structuralLabel(issue, t)}</span>
+													))}
+												</div>
+												<DeleteButton full_path={full_path} pending={pendingDelete === full_path} onDelete={handleDeleteFile} />
 											</div>
 										</li>
 									);
@@ -187,14 +216,17 @@ export default function Warnings({ report, error, loading, qualityData }) {
 				<Section title={t("warn_movie_bad_codec")} count={badCodecMovies.length} colorClass="text-amber-500">
 					{groupQualityByFolder(badCodecMovies).map(([folder, files]) => (
 						<Row key={folder} label={folder}>
-							<ul className="flex flex-col gap-1">
-								{files.map(({ file, issues }, i) => (
+							<ul className="flex flex-col gap-1.5">
+								{files.filter(({ full_path }) => !deletedPaths.has(full_path)).map(({ file, full_path, issues }, i) => (
 									<li key={i} className="flex flex-col gap-0.5">
 										{file && <span className="text-slate-500 text-[11px] font-mono">{file}</span>}
-										<div className="flex flex-wrap gap-2">
-											{issues.map((issue, j) => (
-												<span key={j} className="text-amber-400 text-[11px]">{structuralLabel(issue, t)}</span>
-											))}
+										<div className="flex items-center gap-3">
+											<div className="flex flex-wrap gap-2">
+												{issues.map((issue, j) => (
+													<span key={j} className="text-amber-400 text-[11px]">{structuralLabel(issue, t)}</span>
+												))}
+											</div>
+											<DeleteButton full_path={full_path} pending={pendingDelete === full_path} onDelete={handleDeleteFile} />
 										</div>
 									</li>
 								))}
@@ -209,7 +241,7 @@ export default function Warnings({ report, error, loading, qualityData }) {
 					{groupQualityByFolder(badCodecSeries).map(([folder, files]) => (
 						<Row key={folder} label={folder}>
 							<ul className="flex flex-col gap-1.5">
-								{files.map(({ file, issues }, i) => {
+								{files.filter(({ full_path }) => !deletedPaths.has(full_path)).map(({ file, full_path, issues }, i) => {
 									const epTag = file ? extractEpisodeTag(file) : null;
 									const basename = file ? file.slice(file.lastIndexOf("/") + 1) : null;
 									return (
@@ -218,10 +250,13 @@ export default function Warnings({ report, error, loading, qualityData }) {
 												{epTag && <span className="text-slate-200 font-mono text-[11px] bg-surface2 border border-border px-1.5 py-0.5 rounded shrink-0">{epTag}</span>}
 												{basename && <span className="text-slate-500 text-[11px] font-mono truncate">{basename}</span>}
 											</div>
-											<div className="flex flex-wrap gap-2">
-												{issues.map((issue, j) => (
-													<span key={j} className="text-amber-400 text-[11px]">{structuralLabel(issue, t)}</span>
-												))}
+											<div className="flex items-center gap-3">
+												<div className="flex flex-wrap gap-2">
+													{issues.map((issue, j) => (
+														<span key={j} className="text-amber-400 text-[11px]">{structuralLabel(issue, t)}</span>
+													))}
+												</div>
+												<DeleteButton full_path={full_path} pending={pendingDelete === full_path} onDelete={handleDeleteFile} />
 											</div>
 										</li>
 									);
@@ -341,6 +376,26 @@ export default function Warnings({ report, error, loading, qualityData }) {
 				</Section>
 			)}
 		</div>
+	);
+}
+
+function DeleteButton({ full_path, pending, onDelete }) {
+	const { t } = useLang();
+	return (
+		<button
+			onClick={() => onDelete(full_path)}
+			title={pending ? t("confirm_delete") : t("delete_file")}
+			className={`shrink-0 flex items-center gap-1 text-[11px] cursor-pointer transition-colors px-1.5 py-0.5 rounded border ${
+				pending
+					? "text-red-400 border-red-400/40 bg-red-400/10 hover:bg-red-400/20"
+					: "text-slate-500 border-transparent hover:text-red-400 hover:border-red-400/40 hover:bg-red-400/10"
+			}`}
+		>
+			<svg className="w-3 h-3 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+				<path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+			</svg>
+			{pending && <span>{t("confirm_delete")}</span>}
+		</button>
 	);
 }
 

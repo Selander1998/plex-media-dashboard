@@ -232,6 +232,8 @@
 	"clear_quality_cache_title": "Rensa kvalitetscache",
 	"toast_quality_cache_cleared": "Kvalitetscache rensad",
 	"toast_quality_cache_clear_failed": "Misslyckades rensa kvalitetscache",
+	"toast_file_deleted": "Fil raderad",
+	"delete_file": "Radera",
 	"settings_title": "Inställningar",
 	"settings_language": "Språk",
 	"settings_quality_threshold": "Kvalitetsgräns för upplösning",

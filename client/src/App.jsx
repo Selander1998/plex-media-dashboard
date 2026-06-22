@@ -178,7 +178,7 @@ function AppContent() {
 						onToast={pushToast}
 					/>
 				)}
-				{tab === "warnings" && <Warnings report={report} error={reportError} loading={!report && !reportError} qualityData={qualityData} />}
+				{tab === "warnings" && <Warnings report={report} error={reportError} loading={!report && !reportError} qualityData={qualityData} onToast={pushToast} />}
 				{tab === "quality" && <QualityReport data={qualityData} error={qualityError} loading={qualityLoading} />}
 			</main>
 

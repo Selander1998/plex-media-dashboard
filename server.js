@@ -1,7 +1,7 @@
 import express from "express";
 import { readFile, writeFile, statfs, stat, unlink } from "fs/promises";
 import { fileURLToPath } from "url";
-import { join, dirname } from "path";
+import { join, dirname, resolve } from "path";
 import { spawn, execSync } from "child_process";
 
 const app = express();
@@ -660,6 +660,25 @@ app.post("/api/quality-settings", async (req, res) => {
 		res.json(updated);
 	} catch (e) {
 		res.status(500).json({ error: e.message });
+	}
+});
+
+app.delete("/api/quality-file", async (req, res) => {
+	const { full_path } = req.body ?? {};
+	if (!full_path || typeof full_path !== "string") {
+		return res.status(400).json({ error: "full_path required" });
+	}
+	const target = resolve(full_path);
+	try {
+		const data = JSON.parse(await readFile(QUALITY_REPORT_PATH, "utf-8"));
+		const allowed = [...(data.movies ?? []), ...(data.series ?? [])].some(
+			(item) => resolve(item.full_path) === target
+		);
+		if (!allowed) return res.status(403).json({ error: "Path not in quality report" });
+		await unlink(target);
+		res.json({ ok: true });
+	} catch (err) {
+		res.status(500).json({ error: "Failed to delete file", detail: err.message });
 	}
 });
 

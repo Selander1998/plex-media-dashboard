@@ -232,6 +232,8 @@
 	"clear_quality_cache_title": "Clear quality cache",
 	"toast_quality_cache_cleared": "Quality cache cleared",
 	"toast_quality_cache_clear_failed": "Failed to clear quality cache",
+	"toast_file_deleted": "File deleted",
+	"delete_file": "Delete",
 	"settings_title": "Settings",
 	"settings_language": "Language",
 	"settings_quality_threshold": "Quality resolution threshold",
