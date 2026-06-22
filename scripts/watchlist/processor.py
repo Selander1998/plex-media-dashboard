@@ -30,28 +30,38 @@ def load_blacklist(blacklist_path: str) -> Set[str]:
 	return blacklist
 
 
+_DATE_PATTERNS = [
+	re.compile(r'releaseDate\\":\\"(\d{4}-\d{2}-\d{2})\\"'),
+	re.compile(r'"releaseDate"\s*:\s*"(\d{4}-\d{2}-\d{2})"'),
+	re.compile(r"'releaseDate'\s*:\s*'(\d{4}-\d{2}-\d{2})'"),
+	re.compile(r'releaseDate["\']?\s*:\s*["\']?(\d{4}-\d{2}-\d{2})'),
+]
+
+
 def is_released(url: str, title: str) -> bool:
 	"""
-	Check release status by parsing the releaseDate from the Plex page JSON.
-	Falls back to True (fail open) if the date can't be determined.
+	Check release status by parsing the releaseDate from the Plex page HTML.
+	Falls back to True (fail open) only on network/parse errors.
+	Returns False when the page loads but no confirmed release date is found.
 	"""
 	try:
 		req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-		with urllib.request.urlopen(req) as response:
+		with urllib.request.urlopen(req, timeout=10) as response:
 			html = response.read().decode("utf-8")
-		match = re.search(r'releaseDate\\":\\"(\d{4}-\d{2}-\d{2})\\"', html)
-		if match:
-			release_date = match.group(1)
-			today = datetime.datetime.now().strftime("%Y-%m-%d")
-			released = release_date <= today
-			if not released:
-				print(f"  ~ Skipping unreleased: {title} (releases {release_date})")
-			return released
-		# Fall back to old heuristics if no date found
-		if "Where to Watch" in html:
-			return True
+		today = datetime.datetime.now().strftime("%Y-%m-%d")
+		for pattern in _DATE_PATTERNS:
+			match = pattern.search(html)
+			if match:
+				release_date = match.group(1)
+				released = release_date <= today
+				if not released:
+					print(f"  ~ Skipping unreleased: {title} (releases {release_date})")
+				return released
+		# No date found — "Where to Watch" appears on upcoming titles too, so skip it.
+		# Only trust signals that appear post-release.
 		if "audience rating" in html or "Tomatometer" in html:
 			return True
+		print(f"  ~ Skipping (release date unknown): {title}")
 		return False
 	except Exception as e:
 		print(f"Warning: Could not check release status for {title} ({e}). Assuming released.")
