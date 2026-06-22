@@ -32,6 +32,13 @@ function extractQualityWarnings(qualityData) {
 	return { corruptMovies, corruptSeries, badCodecMovies, badCodecSeries };
 }
 
+function extractEpisodeTag(filePath) {
+	const basename = filePath.slice(filePath.lastIndexOf("/") + 1);
+	const m = basename.match(/[Ss](\d{1,2})[Ee](\d{1,2})/);
+	if (!m) return null;
+	return `S${m[1].padStart(2, "0")}E${m[2].padStart(2, "0")}`;
+}
+
 function groupQualityByFolder(items) {
 	const map = {};
 	for (const item of items) {
@@ -152,17 +159,24 @@ export default function Warnings({ report, error, loading, qualityData }) {
 				<Section title={t("warn_series_corrupt")} count={corruptSeries.length} colorClass="text-red-500">
 					{groupQualityByFolder(corruptSeries).map(([folder, files]) => (
 						<Row key={folder} label={folder}>
-							<ul className="flex flex-col gap-1">
-								{files.map(({ file, issues }, i) => (
-									<li key={i} className="flex flex-col gap-0.5">
-										{file && <span className="text-slate-500 text-[11px] font-mono">{file}</span>}
-										<div className="flex flex-wrap gap-2">
-											{issues.map((issue, j) => (
-												<span key={j} className="text-red-400 text-[11px]">{structuralLabel(issue, t)}</span>
-											))}
-										</div>
-									</li>
-								))}
+							<ul className="flex flex-col gap-1.5">
+								{files.map(({ file, issues }, i) => {
+									const epTag = file ? extractEpisodeTag(file) : null;
+									const basename = file ? file.slice(file.lastIndexOf("/") + 1) : null;
+									return (
+										<li key={i} className="flex flex-col gap-0.5">
+											<div className="flex items-center gap-2 min-w-0">
+												{epTag && <span className="text-slate-200 font-mono text-[11px] bg-surface2 border border-border px-1.5 py-0.5 rounded shrink-0">{epTag}</span>}
+												{basename && <span className="text-slate-500 text-[11px] font-mono truncate">{basename}</span>}
+											</div>
+											<div className="flex flex-wrap gap-2">
+												{issues.map((issue, j) => (
+													<span key={j} className="text-red-400 text-[11px]">{structuralLabel(issue, t)}</span>
+												))}
+											</div>
+										</li>
+									);
+								})}
 							</ul>
 						</Row>
 					))}
@@ -194,17 +208,24 @@ export default function Warnings({ report, error, loading, qualityData }) {
 				<Section title={t("warn_series_bad_codec")} count={badCodecSeries.length} colorClass="text-amber-500">
 					{groupQualityByFolder(badCodecSeries).map(([folder, files]) => (
 						<Row key={folder} label={folder}>
-							<ul className="flex flex-col gap-1">
-								{files.map(({ file, issues }, i) => (
-									<li key={i} className="flex flex-col gap-0.5">
-										{file && <span className="text-slate-500 text-[11px] font-mono">{file}</span>}
-										<div className="flex flex-wrap gap-2">
-											{issues.map((issue, j) => (
-												<span key={j} className="text-amber-400 text-[11px]">{structuralLabel(issue, t)}</span>
-											))}
-										</div>
-									</li>
-								))}
+							<ul className="flex flex-col gap-1.5">
+								{files.map(({ file, issues }, i) => {
+									const epTag = file ? extractEpisodeTag(file) : null;
+									const basename = file ? file.slice(file.lastIndexOf("/") + 1) : null;
+									return (
+										<li key={i} className="flex flex-col gap-0.5">
+											<div className="flex items-center gap-2 min-w-0">
+												{epTag && <span className="text-slate-200 font-mono text-[11px] bg-surface2 border border-border px-1.5 py-0.5 rounded shrink-0">{epTag}</span>}
+												{basename && <span className="text-slate-500 text-[11px] font-mono truncate">{basename}</span>}
+											</div>
+											<div className="flex flex-wrap gap-2">
+												{issues.map((issue, j) => (
+													<span key={j} className="text-amber-400 text-[11px]">{structuralLabel(issue, t)}</span>
+												))}
+											</div>
+										</li>
+									);
+								})}
 							</ul>
 						</Row>
 					))}
