@@ -105,7 +105,7 @@ export function useUpdate({ onSuccess, onError } = {}) {
 			if (!success) throw new Error();
 			timestamps.current.endTime = Date.now();
 			setUpdateStatus("ok");
-			onSuccessRef.current?.().catch(() => {});
+			onSuccessRef.current?.()?.catch(() => {});
 		} catch {
 			setUpdateStatus("error");
 			onErrorRef.current?.(tRef.current("toast_update_failed"));

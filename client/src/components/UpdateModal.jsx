@@ -1,24 +1,29 @@
 import { useLang } from "../LangContext.jsx";
 import { updateLogLineClass } from "../utils/updateLog.js";
 
-function failedPhase(ts, t) {
-	if (!ts.moviesStart) return t("phase_startup");
-	if (!ts.showsStart) return t("phase_movies");
-	if (!ts.plexStart && !ts.watchlistStart) return t("phase_series");
-	if (!ts.watchlistStart) return t("phase_plex");
-	if (!ts.qualityStart) return t("phase_watchlist");
-	return t("phase_quality");
+const PHASE_DONE = [
+	(s) => s.movies != null,
+	(s) => s.shows != null,
+	(s) => s.plexFiles != null,
+	(s) => s.watchlist != null,
+	(s) => s.qualityTotal != null,
+];
+const PHASE_KEYS = ["phase_movies", "phase_series", "phase_plex", "phase_watchlist", "phase_quality"];
+
+function PillStatus({ done }) {
+	return <span className={done ? "text-emerald-400" : "text-red-400"}>{done ? "✓" : "✗"}</span>;
 }
 
-function UpdateErrorContext({ updateLog, ts, t }) {
-	const phase = failedPhase(ts, t);
-	const errorLines = updateLog
-		.filter((line) => /[✗✕]/.test(line) || /^ERROR/.test(line.trim()))
-		.slice(-3);
+function UpdateErrorContext({ updateLog, t }) {
+	const exceptionLines = updateLog
+		.filter((line) => /^Traceback/i.test(line.trim()) || /^(Error|Exception):/i.test(line.trim()) || /^ERROR\b/.test(line.trim()))
+		.slice(-5);
+
+	if (!exceptionLines.length) return null;
+
 	return (
-		<div className="bg-red-500/10 border border-red-800 rounded-lg px-3 py-2.5 flex flex-col gap-1.5">
-			<span className="text-[11px] text-red-400 font-medium">{t("update_failed_during", { phase })}</span>
-			{errorLines.map((line, i) => (
+		<div className="bg-red-500/10 border border-red-800 rounded-lg px-3 py-2.5 flex flex-col gap-1">
+			{exceptionLines.map((line, i) => (
 				<span key={i} className="text-[11px] font-mono text-red-300 leading-relaxed">{line}</span>
 			))}
 		</div>
@@ -46,6 +51,7 @@ export default function UpdateModal({ updateStatus, updateLog, updateStats, noTm
 	// tick is read to force re-renders for live timer; timestamps.current holds section start/end times
 	void tick;
 	const ts = timestamps?.current ?? {};
+	const pending = updateStatus === "aborted" ? "—" : "…";
 	const totalElapsed     = secs(ts.updateStart,    ts.endTime);
 	const moviesElapsed    = secs(ts.moviesStart,    ts.showsStart     ?? ts.endTime);
 	const showsElapsed     = secs(ts.showsStart,     ts.plexStart      ?? ts.watchlistStart ?? ts.endTime);
@@ -74,6 +80,10 @@ export default function UpdateModal({ updateStatus, updateLog, updateStats, noTm
 								clipRule="evenodd"
 							/>
 						</svg>
+					) : updateStatus === "aborted" ? (
+						<svg className="w-5 h-5 text-amber-400 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+							<path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clipRule="evenodd" />
+						</svg>
 					) : (
 						<svg className="w-5 h-5 animate-spin text-indigo-400 shrink-0" viewBox="0 0 20 20" fill="currentColor">
 							<path
@@ -91,6 +101,13 @@ export default function UpdateModal({ updateStatus, updateLog, updateStats, noTm
 					{totalElapsed != null && (
 						<span className="text-xs text-slate-500">{fmtDuration(totalElapsed)}</span>
 					)}
+					{updateStatus === "error" && (
+						<span className="text-xs text-slate-500">
+							{PHASE_DONE.every((fn) => fn(updateStats))
+								? t("update_error_unknown")
+								: t("update_failed_during", { phase: t(PHASE_KEYS[PHASE_DONE.findIndex((fn) => !fn(updateStats))]) })}
+						</span>
+					)}
 					{(noTmdbCache || noQualityCache) && !updateStatus && (
 						<div className="ml-auto flex items-center gap-2">
 							{noTmdbCache && <span className="text-xs text-amber-400">{t("update_no_tmdb_cache_warn")}</span>}
@@ -99,8 +116,8 @@ export default function UpdateModal({ updateStatus, updateLog, updateStats, noTm
 					)}
 				</div>
 
-				{/* Error context — which phase failed + last error lines from log */}
-				{updateStatus === "error" && <UpdateErrorContext updateLog={updateLog} ts={ts} t={t} />}
+				{/* Exception lines — only shown when Python tracebacks are present */}
+				{updateStatus === "error" && <UpdateErrorContext updateLog={updateLog} t={t} />}
 
 				{/* Stats pills — always visible */}
 				<div className="flex gap-2 flex-wrap">
@@ -108,36 +125,41 @@ export default function UpdateModal({ updateStatus, updateLog, updateStats, noTm
 						<span>
 							{updateStats.moviesChecked != null
 								? `${updateStats.moviesChecked}/${updateStats.movies}`
-								: (updateStats.movies ?? "…")}{" "}
+								: (updateStats.movies ?? pending)}{" "}
 							{t("update_stat_movies")}
 						</span>
 						{moviesElapsed != null && <span className="text-indigo-500">{fmtDuration(moviesElapsed)}</span>}
+						{updateStatus === "error" && <PillStatus done={updateStats.movies != null} />}
 					</span>
 					<span className="px-2.5 py-1 rounded-md bg-purple-500/15 border border-purple-800 text-purple-300 text-xs font-medium flex items-center gap-1.5">
 						<span>
 							{updateStats.seriesChecked != null
 								? `${updateStats.seriesChecked}/${updateStats.shows}`
-								: (updateStats.shows ?? "…")}{" "}
+								: (updateStats.shows ?? pending)}{" "}
 							{t("update_stat_shows")}
 						</span>
 						{showsElapsed != null && <span className="text-purple-500">{fmtDuration(showsElapsed)}</span>}
+						{updateStatus === "error" && <PillStatus done={updateStats.shows != null} />}
 					</span>
 					<span className="px-2.5 py-1 rounded-md bg-teal-500/15 border border-teal-800 text-teal-300 text-xs font-medium flex items-center gap-1.5">
-						<span>{updateStats.watchlist ?? "…"} {t("update_stat_watchlist")}</span>
+						<span>{updateStats.watchlist ?? pending} {t("update_stat_watchlist")}</span>
 						{watchlistElapsed != null && <span className="text-teal-600">{fmtDuration(watchlistElapsed)}</span>}
+						{updateStatus === "error" && <PillStatus done={updateStats.watchlist != null} />}
 					</span>
 					<span className="px-2.5 py-1 rounded-md bg-slate-500/15 border border-slate-700 text-slate-300 text-xs font-medium flex items-center gap-1.5">
-						<span>{updateStats.plexFiles != null ? updateStats.plexFiles.toLocaleString() : "…"} {t("update_stat_plex")}</span>
+						<span>{updateStats.plexFiles != null ? updateStats.plexFiles.toLocaleString() : pending} {t("update_stat_plex")}</span>
 						{plexElapsed != null && <span className="text-slate-500">{fmtDuration(plexElapsed)}</span>}
+						{updateStatus === "error" && <PillStatus done={updateStats.plexFiles != null} />}
 					</span>
 					<span className="px-2.5 py-1 rounded-md bg-amber-500/15 border border-amber-800 text-amber-300 text-xs font-medium flex items-center gap-1.5">
 						<span>
 							{updateStats.qualityChecked != null && updateStats.qualityTotal != null
 								? `${updateStats.qualityChecked}/${updateStats.qualityTotal}`
-								: (updateStats.qualityTotal ?? "…")}{" "}
+								: (updateStats.qualityTotal ?? pending)}{" "}
 							{t("update_quality_files")}
 						</span>
 						{qualityElapsed != null && <span className="text-amber-600">{fmtDuration(qualityElapsed)}</span>}
+						{updateStatus === "error" && <PillStatus done={updateStats.qualityTotal != null} />}
 					</span>
 				</div>
 

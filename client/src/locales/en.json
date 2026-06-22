@@ -226,6 +226,7 @@
 	"update_no_tmdb_cache_warn": "No TMDB cache",
 	"update_no_quality_cache_warn": "No quality cache",
 	"update_failed_during": "Failed during {{phase}}",
+	"update_error_unknown": "all phases completed — data is up to date, connection likely dropped",
 	"phase_startup": "startup",
 	"phase_movies": "movie scan",
 	"phase_series": "series scan",

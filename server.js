@@ -52,14 +52,16 @@ const GIT_HASH = (() => {
 async function refreshPlexLibraries() {
 	if (!PLEX_URL || !PLEX_TOKEN) return;
 	try {
+		const signal = AbortSignal.timeout(10_000);
 		const sectionsRes = await fetch(`${PLEX_URL}/library/sections?X-Plex-Token=${PLEX_TOKEN}`, {
 			headers: { Accept: "application/json" },
+			signal,
 		});
 		const data = await sectionsRes.json();
 		const sections = data?.MediaContainer?.Directory ?? [];
 		await Promise.all(
 			sections.map((s) =>
-				fetch(`${PLEX_URL}/library/sections/${s.key}/refresh?X-Plex-Token=${PLEX_TOKEN}`, { method: "GET" })
+				fetch(`${PLEX_URL}/library/sections/${s.key}/refresh?X-Plex-Token=${PLEX_TOKEN}`, { method: "GET", signal })
 			)
 		);
 		console.log(`[plex] refreshed ${sections.length} librar${sections.length === 1 ? "y" : "ies"}`);
@@ -334,16 +336,22 @@ app.post("/api/update", (req, res) => {
 	child.on("close", async (code) => {
 		updateRunning = false;
 		updateChild = null;
-		if (tail.trim()) send({ line: tail.trim() });
-		if (updateAborted) {
-			send({ aborted: true });
-		} else if (code === 0) {
-			await refreshPlexLibraries();
-			send({ done: true });
-		} else {
-			send({ error: true });
+		try {
+			if (tail.trim()) send({ line: tail.trim() });
+			if (updateAborted) {
+				send({ aborted: true });
+			} else if (code === 0) {
+				await refreshPlexLibraries();
+				send({ done: true });
+			} else {
+				send({ error: true });
+			}
+		} catch (err) {
+			console.error("[update] close handler:", err.message);
+			try { send({ error: true }); } catch {}
+		} finally {
+			res.end();
 		}
-		res.end();
 	});
 
 	child.on("error", (err) => {

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import MissingMovies from "./components/MissingMovies.jsx";
 import MissingSeries from "./components/MissingSeries.jsx";
 import Torrents from "./components/Torrents.jsx";
@@ -41,15 +41,23 @@ function AppContent() {
 	const [qualityData, setQualityData] = useState(null);
 	const [qualityError, setQualityError] = useState(null);
 	const [qualityLoading, setQualityLoading] = useState(false);
+	const qualityLoadingRef = useRef(false);
 
-	useEffect(() => {
-		if ((tab !== "quality" && tab !== "warnings") || qualityData || qualityLoading) return;
+	function loadQualityData() {
+		if (qualityLoadingRef.current) return;
+		qualityLoadingRef.current = true;
 		setQualityLoading(true);
 		fetch("/api/quality")
 			.then((r) => { if (!r.ok) throw new Error(r.statusText); return r.json(); })
-			.then((d) => { setQualityData(d); setQualityLoading(false); })
-			.catch((e) => { setQualityError(e.message); setQualityLoading(false); });
-	}, [tab]);
+			.then((d) => { setQualityData(d); setQualityError(null); setQualityLoading(false); })
+			.catch((e) => { setQualityError(e.message); setQualityLoading(false); })
+			.finally(() => { qualityLoadingRef.current = false; });
+	}
+
+	useEffect(() => {
+		if ((tab !== "quality" && tab !== "warnings") || qualityData || qualityLoadingRef.current) return;
+		loadQualityData();
+	}, [tab, qualityData]);
 
 	const { settings, updateSetting } = useSettings();
 	const { toasts, history: notifHistory, unread: notifUnread, pushToast, clearUnread: onNotifRead, clearHistory: onNotifClear } = useToasts();
@@ -63,7 +71,7 @@ function AppContent() {
 	const { savePaths, tempPaths, savePathIdx, setSavePathIdx, diskSpace, totalDiskCapacity } = useSavePaths();
 
 	const { refreshing, updateStatus, updateLog, updateStats, noTmdbCache, noQualityCache, tick, timestamps, logRef, handleRefresh, handleAbort, handleClose } = useUpdate({
-		onSuccess: () => { loadData(); setQualityData(null); },
+		onSuccess: () => { loadData(); setQualityData(null); loadQualityData(); },
 		onError: (msg) => pushToast(msg, true),
 	});
 

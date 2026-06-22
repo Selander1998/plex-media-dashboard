@@ -226,6 +226,7 @@
 	"update_no_tmdb_cache_warn": "Ingen TMDB-cache",
 	"update_no_quality_cache_warn": "Ingen kvalitetscache",
 	"update_failed_during": "Misslyckades under {{phase}}",
+	"update_error_unknown": "alla faser klara — data är uppdaterad, anslutningen tappades troligen",
 	"phase_startup": "uppstart",
 	"phase_movies": "filmsökning",
 	"phase_series": "seriesökning",
