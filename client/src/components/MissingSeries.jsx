@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import StatCard from "./StatCard.jsx";
 import { normalizeName, findTorrentsForTitle, torrentBadgeProps } from "../torrentUtils.js";
 import { useLang } from "../LangContext.jsx";
+import { copyText } from "../utils/clipboard.js";
 
 export default function MissingSeries({ data, error, loading, newKeys = new Set(), onToast }) {
 	const { t } = useLang();
@@ -185,6 +186,13 @@ function ShowSection({
 }) {
 	const { t } = useLang();
 	const [pending, setPending] = useState(false);
+	const [copied, setCopied] = useState(false);
+	function handleCopy(e) {
+		e.stopPropagation();
+		copyText(show);
+		setCopied(true);
+		setTimeout(() => setCopied(false), 1500);
+	}
 	const seasonCount = items.filter((m) => m.type === "season_missing").length;
 	const episodeCount = items.filter((m) => m.type === "episode").length;
 	const tmdbId = items.find((m) => m.tmdb_id)?.tmdb_id;
@@ -228,7 +236,12 @@ function ShowSection({
 						/>
 					</svg>
 				)}
-				<span className="font-semibold text-slate-200 text-sm flex-1">{show}</span>
+				<span
+					onClick={handleCopy}
+					className={`font-semibold text-sm flex-1 cursor-pointer select-none transition-colors ${copied ? "text-teal-400" : "text-slate-200"}`}
+				>
+					{show}{copied && <span className="ml-1.5 text-[11px] font-normal">✓</span>}
+				</span>
 				<div className="flex items-center gap-3 text-xs shrink-0">
 					{hasNew && (
 						<span className="px-1.5 py-0.5 rounded border text-[10px] font-medium text-teal-400 border-teal-800 bg-teal-950/40">

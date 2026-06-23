@@ -2,6 +2,7 @@ import { useState } from "react";
 import StatCard from "./StatCard.jsx";
 import { findTorrentsForTitle, torrentBadgeProps } from "../torrentUtils.js";
 import { useLang } from "../LangContext.jsx";
+import { copyText } from "../utils/clipboard.js";
 
 export default function MissingMovies({
 	data,
@@ -112,6 +113,13 @@ const collections = Object.keys(byCollection).sort();
 }
 
 function MovieRow({ movie, onBlacklist, matchedTorrents = [], isNew = false, onToast }) {
+	const [copied, setCopied] = useState(false);
+	function handleCopy(e) {
+		e.stopPropagation();
+		copyText(movie.title);
+		setCopied(true);
+		setTimeout(() => setCopied(false), 1500);
+	}
 	const { t } = useLang();
 	const [pending, setPending] = useState(false);
 
@@ -134,7 +142,12 @@ function MovieRow({ movie, onBlacklist, matchedTorrents = [], isNew = false, onT
 
 	return (
 		<div className="px-3.5 py-2.5 flex items-center gap-2 group hover:bg-surface2">
-			<span className="text-[13px] text-slate-200 flex-1 min-w-0 leading-snug">{movie.title}</span>
+			<span
+				onClick={handleCopy}
+				className={`text-[13px] flex-1 min-w-0 leading-snug cursor-pointer select-none transition-colors ${copied ? "text-teal-400" : "text-slate-200"}`}
+			>
+				{movie.title}{copied && <span className="ml-1.5 text-[11px]">✓</span>}
+			</span>
 			<div className="flex items-center gap-1.5 shrink-0">
 				{isNew && (
 					<span className="px-1.5 py-0.5 rounded border text-[10px] font-medium text-teal-400 border-teal-800 bg-teal-950/40">

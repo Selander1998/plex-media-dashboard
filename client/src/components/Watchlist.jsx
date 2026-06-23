@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import StatCard from "./StatCard.jsx";
 import { normalizeName, findTorrentsForTitle, torrentBadgeProps } from "../torrentUtils.js";
 import { useLang } from "../LangContext.jsx";
+import { copyText } from "../utils/clipboard.js";
 
 function getMissingItems(item, report) {
 	if (!report || item.category.toUpperCase() === "MOVIE") return [];
@@ -152,7 +153,14 @@ function WatchlistCard({
 }) {
 	const { t } = useLang();
 	const [expanded, setExpanded] = useState(false);
+	const [copied, setCopied] = useState(false);
 	const isMovie = item.category.toUpperCase() === "MOVIE";
+	function handleCopy(e) {
+		e.stopPropagation();
+		copyText(item.title);
+		setCopied(true);
+		setTimeout(() => setCopied(false), 1500);
+	}
 	const cardCls =
 		diskStatus === "incomplete" ? "bg-yellow-950/20 border-yellow-900" : "bg-surface border-border";
 
@@ -163,8 +171,11 @@ function WatchlistCard({
 	return (
 		<div className={`border rounded-lg px-4 py-3.5 flex flex-col gap-1.5 group ${cardCls}`}>
 			<div className="flex items-start gap-2">
-				<span className="text-sm font-semibold text-slate-200 leading-snug flex-1">
-					{item.title}
+				<span
+					onClick={handleCopy}
+					className={`text-sm font-semibold leading-snug flex-1 cursor-pointer select-none transition-colors ${copied ? "text-teal-400" : "text-slate-200"}`}
+				>
+					{item.title}{copied && <span className="ml-1.5 text-[11px] font-normal">✓</span>}
 				</span>
 				<div className="flex items-center gap-1 shrink-0">
 					{diskStatus === "incomplete" && missingItems.length > 0 && (
