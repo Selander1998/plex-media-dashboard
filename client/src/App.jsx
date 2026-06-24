@@ -43,6 +43,7 @@ function AppContent() {
 	const [qualityError, setQualityError] = useState(null);
 	const [qualityLoading, setQualityLoading] = useState(false);
 	const qualityLoadingRef = useRef(false);
+	const qualityMtimeRef = useRef(0);
 
 	function loadQualityData() {
 		if (qualityLoadingRef.current) return;
@@ -50,13 +51,23 @@ function AppContent() {
 		setQualityLoading(true);
 		fetch("/api/quality")
 			.then((r) => { if (!r.ok) throw new Error(r.statusText); return r.json(); })
-			.then((d) => { setQualityData(d); setQualityError(null); setQualityLoading(false); })
+			.then((d) => { qualityMtimeRef.current = d.mtime ?? 0; setQualityData(d); setQualityError(null); setQualityLoading(false); })
 			.catch((e) => { setQualityError(e.message); setQualityLoading(false); })
 			.finally(() => { qualityLoadingRef.current = false; });
 	}
 
 	useEffect(() => {
 		loadQualityData();
+		const id = setInterval(async () => {
+			try {
+				const r = await fetch("/api/quality/mtime");
+				const { mtime } = await r.json();
+				if (mtime && qualityMtimeRef.current > 0 && mtime !== qualityMtimeRef.current) {
+					loadQualityData();
+				}
+			} catch {}
+		}, 30_000);
+		return () => clearInterval(id);
 	}, []);
 
 	const [renameData, setRenameData] = useState(null);

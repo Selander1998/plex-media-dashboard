@@ -240,10 +240,19 @@ app.get("/api/report", async (req, res) => {
 
 app.get("/api/quality", async (req, res) => {
 	try {
-		const data = await readFile(QUALITY_REPORT_PATH, "utf-8");
-		res.json(JSON.parse(data));
+		const [data, s] = await Promise.all([readFile(QUALITY_REPORT_PATH, "utf-8"), stat(QUALITY_REPORT_PATH)]);
+		res.json({ ...JSON.parse(data), mtime: s.mtimeMs });
 	} catch (err) {
 		res.status(404).json({ error: "Quality report not found — run update first", detail: err.message });
+	}
+});
+
+app.get("/api/quality/mtime", async (_req, res) => {
+	try {
+		const s = await stat(QUALITY_REPORT_PATH);
+		res.json({ mtime: s.mtimeMs });
+	} catch {
+		res.json({ mtime: 0 });
 	}
 });
 
@@ -936,7 +945,17 @@ async function processTorrent(torrent) {
 
 	// New files confirmed moved — now safe to delete old quality-flagged files
 	for (const f of oldFilesToDelete) await unlink(f).catch(() => {});
-	if (oldFilesToDelete.length) console.log(`[process] Deleted ${oldFilesToDelete.length} replaced file(s)`);
+	if (oldFilesToDelete.length) {
+		console.log(`[process] Deleted ${oldFilesToDelete.length} replaced file(s)`);
+		// Remove replaced paths from quality report so the UI reflects the fix immediately
+		try {
+			const qReport = JSON.parse(await readFile(QUALITY_REPORT_PATH, "utf-8"));
+			const deletedAbs = new Set(oldFilesToDelete.map((f) => resolve(f)));
+			qReport.movies = (qReport.movies ?? []).filter((m) => !deletedAbs.has(resolve(m.full_path)));
+			qReport.series = (qReport.series ?? []).filter((m) => !deletedAbs.has(resolve(m.full_path)));
+			await writeFile(QUALITY_REPORT_PATH, JSON.stringify(qReport));
+		} catch { /* quality report missing or malformed — leave as-is */ }
+	}
 
 	await qbitFetch("/api/v2/torrents/delete", {
 		method: "POST",
@@ -1266,7 +1285,9 @@ app.post("/api/qbit/auto-pause", (req, res) => {
 	res.json({ enabled: autoPauseSeeding });
 });
 
-setInterval(async () => {
+let firstPoll = true;
+
+async function pollTorrents() {
 	try {
 		const qres = await qbitFetch("/api/v2/torrents/info");
 		const torrents = await qres.json();
@@ -1274,15 +1295,16 @@ setInterval(async () => {
 		for (const t of torrents) {
 			const prev = prevTorrentStates.get(t.hash);
 			const newlyDone = prev && !DONE_STATES.has(prev) && DONE_STATES.has(t.state);
+			// On first poll after startup, catch torrents that finished while the server was down.
+			// Guard: only process if content_path still exists (files not yet moved to library).
+			const missedWhileDown = firstPoll && !prev && DONE_STATES.has(t.state)
+				&& await stat(t.content_path).then(() => true).catch(() => false);
 
-			if (newlyDone) {
-
-				if ((MOVIES_ROOTS.length || SERIES_ROOTS.length) && !processingTorrents.has(t.hash)) {
-					processingTorrents.add(t.hash);
-					processTorrent(t)
-						.catch((e) => console.error(`[process] error for "${t.name}": ${e.message}`))
-						.finally(() => processingTorrents.delete(t.hash));
-				}
+			if ((newlyDone || missedWhileDown) && (MOVIES_ROOTS.length || SERIES_ROOTS.length) && !processingTorrents.has(t.hash)) {
+				processingTorrents.add(t.hash);
+				processTorrent(t)
+					.catch((e) => console.error(`[process] error for "${t.name}": ${e.message}`))
+					.finally(() => processingTorrents.delete(t.hash));
 			}
 
 			if (autoPauseSeeding && SEEDING_STATES.has(t.state) && !processingTorrents.has(t.hash)) {
@@ -1296,10 +1318,14 @@ setInterval(async () => {
 		}
 
 		for (const t of torrents) prevTorrentStates.set(t.hash, t.state);
+		firstPoll = false;
 	} catch (e) {
 		console.error("[auto-pause] error:", e.message);
 	}
-}, 30_000);
+}
+
+pollTorrents();
+setInterval(pollTorrents, 30_000);
 
 app.get("/api/version", (_req, res) => res.json({ hash: GIT_HASH }));
 
