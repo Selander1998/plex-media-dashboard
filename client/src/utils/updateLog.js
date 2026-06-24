@@ -1,7 +1,7 @@
 export function shouldShowUpdateLine(line) {
 	const trimmed = line.trim();
 	if (/^═+$/.test(trimmed)) return false;
-	if (/^\[PROGRESS\] (movies|series|quality)/.test(trimmed)) return false;
+	if (/^\[PROGRESS\] (movies|movies_p2|series|quality)/.test(trimmed)) return false;
 	if (/^\s*\[\d+\/\d+\]/.test(trimmed)) return false;
 	if (/^\s*✓ .+\(\d{4}\)(\s+\[.*\])?$/.test(trimmed)) return false;
 	if (/^\s*✓ Season \d+: complete/.test(trimmed)) return false;
@@ -12,6 +12,8 @@ export function extractUpdateStat(line, prev) {
 	let m;
 	if ((m = line.match(/\[PROGRESS\] movies (\d+)\/(\d+)/i)))
 		return { ...prev, moviesChecked: parseInt(m[1]), movies: parseInt(m[2]) };
+	if ((m = line.match(/\[PROGRESS\] movies_p2 (\d+)\/(\d+)/i)))
+		return { ...prev, moviesCheckedP2: parseInt(m[1]), moviesP2: parseInt(m[2]) };
 	if ((m = line.match(/\[PROGRESS\] series (\d+)\/(\d+)/i)))
 		return { ...prev, seriesChecked: parseInt(m[1]), shows: parseInt(m[2]) };
 	if ((m = line.match(/\[PROGRESS\] quality (\d+)\/(\d+)/i)))

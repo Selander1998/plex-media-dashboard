@@ -123,7 +123,9 @@ export default function UpdateModal({ updateStatus, updateLog, updateStats, noTm
 				<div className="flex gap-2 flex-wrap">
 					<span className="px-2.5 py-1 rounded-md bg-indigo-500/15 border border-indigo-800 text-indigo-300 text-xs font-medium flex items-center gap-1.5">
 						<span>
-							{updateStats.moviesChecked != null
+							{updateStats.moviesCheckedP2 != null
+								? `${updateStats.moviesCheckedP2}/${updateStats.moviesP2} ②`
+								: updateStats.moviesChecked != null
 								? `${updateStats.moviesChecked}/${updateStats.movies}`
 								: (updateStats.movies ?? pending)}{" "}
 							{t("update_stat_movies")}

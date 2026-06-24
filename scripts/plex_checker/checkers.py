@@ -109,24 +109,29 @@ def check_movies(movies_roots, api_key, cache, blacklist):
 			print(f"  [WARN] {folder.name} — not found on TMDB")
 		print(f"[PROGRESS] movies {i + 1}/{total}", flush=True)
 
-	print(f"\n  Pass 2/2: Checking collections for gaps...\n", flush=True)
-
 	# ── Pass 2: for each movie in a collection, check completeness ────────────
+	p2_total = sum(1 for f in all_folders if f.name in folder_to_tmdb_id)
+	print(f"\n  Pass 2/2: Checking collections for gaps... ({p2_total} with TMDB IDs)\n", flush=True)
+
 	missing = []
 	seen_collections = set()
 	today_str = datetime.now().strftime("%Y-%m-%d")
+	p2_done = 0
 
 	for folder in all_folders:
 		tmdb_id = folder_to_tmdb_id.get(folder.name)
 		if not tmdb_id:
 			continue
 
+		p2_done += 1
 		parts, collection_name = get_movie_collection(tmdb_id, api_key, cache)
 		if not parts:
+			print(f"[PROGRESS] movies_p2 {p2_done}/{p2_total}", flush=True)
 			continue
 
 		col_key = (collection_name or str(tmdb_id)).lower()
 		if col_key in seen_collections:
+			print(f"[PROGRESS] movies_p2 {p2_done}/{p2_total}", flush=True)
 			continue
 		seen_collections.add(col_key)
 
@@ -158,6 +163,7 @@ def check_movies(movies_roots, api_key, cache, blacklist):
 				})
 
 		missing.extend(collection_missing)
+		print(f"[PROGRESS] movies_p2 {p2_done}/{p2_total}", flush=True)
 
 	return {
 		"total": len(all_folders),
@@ -260,6 +266,11 @@ def check_series(series_roots, api_key, cache, blacklist, series_filter=None):
 								season_files.setdefault(sn, []).append(f)
 							elif f.suffix.lower() not in ALLOWED_EXTS:
 								unneeded_files.append({"show": title, "file": f"{show_folder.name}/{d.name}/{f.name}"})
+						elif f.is_dir():
+							# Handle double-nested season folders (e.g. Season 22/Season 22/file.mkv)
+							for ff in f.iterdir():
+								if ff.is_file() and is_video(ff.name):
+									season_files.setdefault(sn, []).append(ff)
 
 		total_seasons_on_disk += len(season_files)
 		for sn, files in season_files.items():
