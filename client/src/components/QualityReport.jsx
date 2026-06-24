@@ -4,11 +4,12 @@ import { useLang } from "../LangContext.jsx";
 const FILTERS = [
 	{ id: "all", labelKey: "quality_filter_all" },
 	{ id: "low_resolution", labelKey: "quality_issue_low_res" },
+	{ id: "high_resolution", labelKey: "quality_issue_high_res" },
 	{ id: "low_video_bitrate", labelKey: "quality_issue_low_video_bitrate" },
 	{ id: "low_audio_bitrate", labelKey: "quality_issue_low_audio_bitrate" },
 ];
 
-const METRIC_TYPES = new Set(["low_resolution", "low_video_bitrate", "low_audio_bitrate"]);
+const METRIC_TYPES = new Set(["low_resolution", "high_resolution", "low_video_bitrate", "low_audio_bitrate"]);
 
 function isMetricIssue(issue) {
 	const type = issue.indexOf(":") === -1 ? issue : issue.slice(0, issue.indexOf(":"));
@@ -32,6 +33,7 @@ function parseIssue(issue, t) {
 	if (issue === "no_audio_stream") return { label: t("quality_issue_no_audio"), color: "text-amber-500" };
 	if (issue.startsWith("bad_codec:")) return { label: `${t("quality_issue_bad_codec")}: ${issue.slice(10).toUpperCase()}`, color: "text-amber-500" };
 	if (issue.startsWith("low_resolution:")) return { label: `${t("quality_issue_low_res")}: ${issue.slice(15)}`, color: "text-yellow-500" };
+	if (issue.startsWith("high_resolution:")) return { label: `${t("quality_issue_high_res")}: ${issue.slice(16)}`, color: "text-sky-400" };
 	if (issue.startsWith("low_video_bitrate:")) return { label: `${t("quality_issue_low_video_bitrate")}: ${issue.slice(18)}`, color: "text-yellow-500" };
 	if (issue.startsWith("low_audio_bitrate:")) return { label: `${t("quality_issue_low_audio_bitrate")}: ${issue.slice(18)}`, color: "text-slate-400" };
 	return { label: issue, color: "text-slate-400" };
@@ -42,13 +44,19 @@ function sortValue(item, filter) {
 		const issue = item.issues.find((i) => i.startsWith(filter + ":"));
 		return issue ? parseInt(issue.replace(/[^0-9]/g, "")) : Infinity;
 	}
+	if (filter === "high_resolution") {
+		const issue = item.issues.find((i) => i.startsWith("high_resolution:"));
+		if (!issue) return -Infinity;
+		const [w, h] = issue.slice(16).split("x").map(Number);
+		return -(w * h); // negate so "worst" (ascending) shows highest resolution first
+	}
 	const issue = item.issues.find((i) => i.startsWith("low_resolution:"));
 	if (!issue) return Infinity;
 	const [w, h] = issue.slice(15).split("x").map(Number);
 	return w * h;
 }
 
-const SORTABLE_FILTERS = new Set(["low_resolution", "low_video_bitrate", "low_audio_bitrate"]);
+const SORTABLE_FILTERS = new Set(["low_resolution", "high_resolution", "low_video_bitrate", "low_audio_bitrate"]);
 
 function filterItems(items, filter, sortDir) {
 	const filtered = filter === "all"

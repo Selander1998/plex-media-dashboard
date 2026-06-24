@@ -18,6 +18,7 @@ export default function SettingsPanel({ settings, updateSetting, report, locale,
 	const [cacheAge, setCacheAge] = useState(null);
 	const [qualityCacheAge, setQualityCacheAge] = useState(null);
 	const [resolutionThreshold, setResolutionThreshold] = useState(720);
+	const [resolutionMax, setResolutionMax] = useState(0);
 	const [videoBitrate, setVideoBitrate] = useState(0);
 	const [audioBitrate, setAudioBitrate] = useState(0);
 	const [autoPause, setAutoPause] = useState(false);
@@ -27,6 +28,7 @@ export default function SettingsPanel({ settings, updateSetting, report, locale,
 		fetch("/api/quality-cache").then((r) => r.json()).then((d) => setQualityCacheAge(d.ageDays ?? null)).catch(() => {});
 		fetch("/api/quality-settings").then((r) => r.json()).then((d) => {
 			setResolutionThreshold(d.resolution_threshold ?? 720);
+			setResolutionMax(d.resolution_max ?? 0);
 			setVideoBitrate(d.video_bitrate_1080p ?? 0);
 			setAudioBitrate(d.audio_bitrate_min ?? 0);
 		}).catch(() => {});
@@ -43,6 +45,11 @@ export default function SettingsPanel({ settings, updateSetting, report, locale,
 	function handleResolutionThreshold(value) {
 		setResolutionThreshold(value);
 		saveQualitySettings({ resolution_threshold: value });
+	}
+
+	function handleResolutionMax(value) {
+		setResolutionMax(value);
+		saveQualitySettings({ resolution_max: value });
 	}
 
 	function handleVideoBitrate(value) {
@@ -144,6 +151,25 @@ export default function SettingsPanel({ settings, updateSetting, report, locale,
 							}`}
 						>
 							{p}p
+						</button>
+					))}
+				</div>
+			</div>
+
+			<div>
+				<p className="text-xs text-slate-500 mb-2">{t("settings_max_resolution")}</p>
+				<div className="flex gap-1">
+					{[[0, t("settings_off")], [720, "720p"], [1080, "1080p"], [1440, "1440p"], [2160, "2160p"]].map(([val, label]) => (
+						<button
+							key={val}
+							onClick={() => handleResolutionMax(val)}
+							className={`px-2.5 py-1 text-xs rounded cursor-pointer transition-colors ${
+								resolutionMax === val
+									? "bg-indigo-600 text-white"
+									: "bg-surface2 text-slate-400 hover:text-slate-200"
+							}`}
+						>
+							{label}
 						</button>
 					))}
 				</div>
