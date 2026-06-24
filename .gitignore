@@ -22,6 +22,7 @@ scripts/quality_report.json
 scripts/quality_cache.json
 scripts/quality_settings.json
 scripts/server_settings.json
+scripts/rename_plan.json
 *.log
 
 # Claude Code project memory

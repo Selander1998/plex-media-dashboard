@@ -56,9 +56,8 @@ function AppContent() {
 	}
 
 	useEffect(() => {
-		if ((tab !== "quality" && tab !== "warnings") || qualityData || qualityLoadingRef.current) return;
 		loadQualityData();
-	}, [tab, qualityData]);
+	}, []);
 
 	const [renameData, setRenameData] = useState(null);
 	const [renameLoading, setRenameLoading] = useState(false);
@@ -75,10 +74,18 @@ function AppContent() {
 			.finally(() => { renameLoadingRef.current = false; });
 	}
 
-	useEffect(() => {
-		if (tab !== "library" || renameData || renameLoadingRef.current) return;
-		loadRenameData();
-	}, [tab, renameData]);
+	function scanRenameData() {
+		if (renameLoadingRef.current) return;
+		renameLoadingRef.current = true;
+		setRenameLoading(true);
+		fetch("/api/library/renames/scan", { method: "POST" })
+			.then((r) => { if (!r.ok) throw new Error(r.statusText); return r.json(); })
+			.then((d) => { setRenameData(d); setRenameLoading(false); })
+			.catch(() => { setRenameLoading(false); })
+			.finally(() => { renameLoadingRef.current = false; });
+	}
+
+	useEffect(() => { loadRenameData(); }, []);
 
 	const { settings, updateSetting } = useSettings();
 	const { toasts, history: notifHistory, unread: notifUnread, pushToast, clearUnread: onNotifRead, clearHistory: onNotifClear } = useToasts();
@@ -210,7 +217,7 @@ function AppContent() {
 				)}
 				{tab === "warnings" && <Warnings report={report} error={reportError} loading={!report && !reportError} qualityData={qualityData} onToast={pushToast} />}
 				{tab === "quality" && <QualityReport data={qualityData} error={qualityError} loading={qualityLoading} />}
-				{tab === "library" && <LibraryRename data={renameData} loading={renameLoading} onRefresh={loadRenameData} onDataChange={setRenameData} />}
+				{tab === "library" && <LibraryRename data={renameData} loading={renameLoading} onRefresh={scanRenameData} onDataChange={setRenameData} />}
 			</main>
 
 			{pasteMode && (

@@ -32,6 +32,7 @@ const QUALITY_REPORT_PATH = join(dirname(REPORT_PATH), "quality_report.json");
 const QUALITY_CACHE_PATH = join(dirname(REPORT_PATH), "quality_cache.json");
 const QUALITY_SETTINGS_PATH = join(dirname(REPORT_PATH), "quality_settings.json");
 const SERVER_SETTINGS_PATH = join(dirname(REPORT_PATH), "server_settings.json");
+const RENAME_PLAN_PATH = join(dirname(REPORT_PATH), "rename_plan.json");
 const PLEX_BLACKLIST_PATH = join(dirname(REPORT_PATH), "plex_blacklist.json");
 const TMDB_CACHE_PATH = join(dirname(REPORT_PATH), "plex_checker_cache.json");
 const PORT = process.env.PORT || 3000;
@@ -943,6 +944,7 @@ async function processTorrent(torrent) {
 		body: new URLSearchParams({ hashes: hash, deleteFiles: "true" }),
 	}).catch((err) => console.error(`[process] torrent delete failed: ${err.message}`));
 
+	await refreshPlexLibraries().catch(() => {});
 	console.log(`[process] done: "${name}"`);
 
 	// --- Notification ---
@@ -1067,7 +1069,7 @@ async function buildRenamePlan() {
 			const videoEntries = fileEntries.filter((fe) => fe.isFile() && MEDIA_EXTS.has(extname(fe.name).toLowerCase()));
 			if (videoEntries.length > 1) {
 				// Multiple video files — renaming would produce duplicate targets; skip and warn
-				warnings.multipleVideos.push(entry.name);
+				warnings.multipleVideos.push({ folder: entry.name, files: videoEntries.map((fe) => ({ name: fe.name, fullPath: join(folderCurrent, fe.name) })) });
 			} else {
 				for (const fe of videoEntries) {
 					const ext = extname(fe.name).toLowerCase();
@@ -1125,7 +1127,7 @@ async function buildRenamePlan() {
 					}
 					const epInfo = parseEpisodeInfo(epEntry.name);
 					if (!epInfo) {
-						warnings.unparseable.push({ show: showNameClean, season: seasonEntry.name, file: epEntry.name });
+						warnings.unparseable.push({ show: showNameClean, season: seasonEntry.name, file: epEntry.name, fullPath: join(seasonFolderCurrent, epEntry.name) });
 						continue;
 					}
 					const title = await fetchTmdbEpisodeTitle(showNameClean, epInfo.season, epInfo.episode);
@@ -1162,7 +1164,17 @@ async function buildRenamePlan() {
 
 app.get("/api/library/renames", async (req, res) => {
 	try {
+		const data = JSON.parse(await readFile(RENAME_PLAN_PATH, "utf-8"));
+		res.json(data);
+	} catch {
+		res.json(null);
+	}
+});
+
+app.post("/api/library/renames/scan", async (req, res) => {
+	try {
 		const plan = await buildRenamePlan();
+		await writeFile(RENAME_PLAN_PATH, JSON.stringify(plan));
 		res.json(plan);
 	} catch (err) {
 		res.status(500).json({ error: "Scan failed", detail: err.message });
@@ -1211,9 +1223,27 @@ app.post("/api/library/renames/apply", async (req, res) => {
 			: plan;
 		const result = await applyRenamePlan(effectivePlan, showFolder ? "series" : scope);
 		await refreshPlexLibraries().catch(() => {});
+		await unlink(RENAME_PLAN_PATH).catch(() => {});
 		res.json({ ...result, tmdbFailed: plan.stats.tmdbFailed });
 	} catch (err) {
 		res.status(500).json({ error: "Apply failed", detail: err.message });
+	}
+});
+
+app.delete("/api/library/file", async (req, res) => {
+	try {
+		const { fullPath } = req.body ?? {};
+		if (!fullPath) return res.status(400).json({ error: "fullPath required" });
+		const allRoots = [...MOVIES_ROOTS, ...SERIES_ROOTS];
+		const abs = resolve(fullPath);
+		if (!allRoots.some((r) => abs.startsWith(resolve(r) + "/"))) {
+			return res.status(403).json({ error: "Path is outside media roots" });
+		}
+		await unlink(abs);
+		await refreshPlexLibraries().catch(() => {});
+		res.json({ ok: true });
+	} catch (err) {
+		res.status(500).json({ error: err.message });
 	}
 });
 

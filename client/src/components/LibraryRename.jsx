@@ -94,6 +94,21 @@ function MovieSection({ movie }) {
 	);
 }
 
+function TrashButton({ onClick, deleting }) {
+	return (
+		<button
+			onClick={onClick}
+			disabled={deleting}
+			className="shrink-0 p-1 text-slate-600 hover:text-red-400 transition-colors cursor-pointer disabled:opacity-40"
+			title="Delete file"
+		>
+			{deleting
+				? <svg className="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 12a8 8 0 018-8v8z" /></svg>
+				: <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>}
+		</button>
+	);
+}
+
 export default function LibraryRename({ data, loading, onRefresh, onDataChange }) {
 	const [applying, setApplying] = useState(null);
 	const [result, setResult] = useState(null);
@@ -101,6 +116,24 @@ export default function LibraryRename({ data, loading, onRefresh, onDataChange }
 	const [filter, setFilter] = useState("all");
 	const [missingTitleOnly, setMissingTitleOnly] = useState(false);
 	const [warningsOpen, setWarningsOpen] = useState(false);
+	const [deleting, setDeleting] = useState(null);
+
+	async function deleteFile(fullPath, onRemove) {
+		setDeleting(fullPath);
+		try {
+			const res = await fetch("/api/library/file", {
+				method: "DELETE",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ fullPath }),
+			});
+			if (!res.ok) { const d = await res.json(); throw new Error(d.error ?? res.statusText); }
+			onRemove();
+		} catch (e) {
+			setError(e.message);
+		} finally {
+			setDeleting(null);
+		}
+	}
 
 	async function apply(scope, showFolder = null) {
 		const key = showFolder ?? scope;
@@ -228,8 +261,29 @@ export default function LibraryRename({ data, loading, onRefresh, onDataChange }
 							{warnings.multipleVideos?.length > 0 && (
 								<div className="flex flex-col gap-1.5">
 									<span className="text-xs font-semibold text-amber-500 uppercase tracking-wider">Multiple video files — skipped (would overwrite)</span>
-									{warnings.multipleVideos.map((folder) => (
-										<span key={folder} className="text-xs text-slate-400 font-mono pl-2">{folder}</span>
+									{warnings.multipleVideos.map((entry) => (
+										<div key={entry.folder ?? entry} className="flex flex-col gap-1 pl-2">
+											<span className="text-xs text-slate-500 font-mono">{entry.folder ?? entry}</span>
+											{entry.files?.map((f) => (
+												<div key={f.fullPath} className="flex items-center gap-1 pl-2">
+													<span className="text-xs text-slate-400 font-mono flex-1 truncate">{f.name}</span>
+													<TrashButton
+														deleting={deleting === f.fullPath}
+														onClick={() => deleteFile(f.fullPath, () => onDataChange((prev) => ({
+															...prev,
+															warnings: {
+																...prev.warnings,
+																multipleVideos: prev.warnings.multipleVideos
+																	.map((mv) => mv.folder === entry.folder
+																		? { ...mv, files: mv.files.filter((x) => x.fullPath !== f.fullPath) }
+																		: mv)
+																	.filter((mv) => mv.files?.length > 1),
+															},
+														})))}
+													/>
+												</div>
+											))}
+										</div>
 									))}
 								</div>
 							)}
@@ -237,7 +291,21 @@ export default function LibraryRename({ data, loading, onRefresh, onDataChange }
 								<div className="flex flex-col gap-1.5">
 									<span className="text-xs font-semibold text-amber-500 uppercase tracking-wider">Files with no episode info — skipped</span>
 									{warnings.unparseable.map((w, i) => (
-										<span key={i} className="text-xs text-slate-400 font-mono pl-2">{w.show} / {w.season} / {w.file}</span>
+										<div key={i} className="flex items-center gap-1 pl-2">
+											<span className="text-xs text-slate-400 font-mono flex-1 truncate">{w.show} / {w.season} / {w.file}</span>
+											{w.fullPath && (
+												<TrashButton
+													deleting={deleting === w.fullPath}
+													onClick={() => deleteFile(w.fullPath, () => onDataChange((prev) => ({
+														...prev,
+														warnings: {
+															...prev.warnings,
+															unparseable: prev.warnings.unparseable.filter((_, j) => j !== i),
+														},
+													})))}
+												/>
+											)}
+										</div>
 									))}
 								</div>
 							)}
