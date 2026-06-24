@@ -656,6 +656,32 @@ function shortPath(fullPath) {
 	return fullPath;
 }
 
+function normalizeMovieTitle(name) {
+	return name
+		.replace(/\s*\(\d{4}\)\s*$/, "")
+		.toLowerCase()
+		.replace(/&/g, "and")
+		.replace(/[^a-z0-9\s]/g, "")
+		.replace(/\s+/g, " ")
+		.trim();
+}
+
+async function findExistingMovieFolder(cleanName) {
+	const year = (cleanName.match(/\((\d{4})\)\s*$/) || [])[1] ?? null;
+	const needle = normalizeMovieTitle(cleanName);
+	for (const root of MOVIES_ROOTS) {
+		let entries;
+		try { entries = await readdir(root, { withFileTypes: true }); } catch { continue; }
+		for (const entry of entries) {
+			if (!entry.isDirectory()) continue;
+			const entryYear = (entry.name.match(/\((\d{4})\)/) || [])[1] ?? null;
+			if (year && entryYear && entryYear !== year) continue;
+			if (normalizeMovieTitle(entry.name) === needle) return { root, folderName: entry.name };
+		}
+	}
+	return null;
+}
+
 async function findExistingShowRoot(showName) {
 	const needle = showName.toLowerCase();
 	for (const root of SERIES_ROOTS) {
@@ -849,7 +875,15 @@ async function processTorrent(torrent) {
 	let movieDestFolder = null;
 	let oldFilesToDelete = [];
 	if (type === "movies") {
-		movieDestFolder = join(destRoot, cleanMovieName ?? name);
+		const existingMovie = await findExistingMovieFolder(cleanMovieName ?? name);
+		if (existingMovie && existingMovie.root !== destRoot) {
+			const fromDisk = destRoot.split("/").filter(Boolean)[1];
+			const toDisk = existingMovie.root.split("/").filter(Boolean)[1];
+			console.log(`[process] Movie already on ${toDisk}, redirecting from ${fromDisk}: "${existingMovie.folderName}"`);
+		}
+		movieDestFolder = existingMovie
+			? join(existingMovie.root, existingMovie.folderName)
+			: join(destRoot, cleanMovieName ?? name);
 		const folderExists = await stat(movieDestFolder).then((s) => s.isDirectory()).catch(() => false);
 		if (folderExists) {
 			const oldVideos = (await walkFiles(movieDestFolder))
