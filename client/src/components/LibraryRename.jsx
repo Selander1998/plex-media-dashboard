@@ -1,0 +1,310 @@
+import { useState } from "react";
+import StatCard from "./StatCard.jsx";
+
+function Arrow() {
+	return <span className="text-slate-600 shrink-0 text-xs">→</span>;
+}
+
+function NameChange({ from, to }) {
+	return (
+		<div className="flex items-center gap-2 text-xs font-mono min-w-0">
+			<span className="text-slate-400 truncate">{from}</span>
+			<Arrow />
+			<span className="text-emerald-400 truncate">{to}</span>
+		</div>
+	);
+}
+
+function ShowSection({ show, onApply, applying }) {
+	const [open, setOpen] = useState(false);
+	const changed = show.seasons.reduce(
+		(a, s) => a + s.episodes.filter((e) => e.episodeChanged).length + (s.seasonFolderChanged ? 1 : 0),
+		0
+	);
+	const hasMissingTitles = show.seasons.some((s) => s.episodes.some((e) => !e.title));
+	const isApplying = applying === show.showFolder;
+
+	return (
+		<div className="border border-border rounded-lg overflow-hidden">
+			<div className="flex items-center bg-surface">
+				<button
+					className="flex-1 flex items-center justify-between px-4 py-2.5 hover:bg-white/5 transition-colors text-left cursor-pointer min-w-0"
+					onClick={() => setOpen((v) => !v)}
+				>
+					<span className="font-medium text-sm text-slate-200 truncate">{show.showNameClean ?? show.showName}</span>
+					<div className="flex items-center gap-2 shrink-0 ml-2">
+						{hasMissingTitles && (
+							<span className="text-[10px] text-amber-500">missing titles</span>
+						)}
+						<span className="text-xs text-slate-500">{changed} change{changed !== 1 ? "s" : ""}</span>
+						<svg className={`w-3.5 h-3.5 text-slate-500 transition-transform ${open ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+					</div>
+				</button>
+				<button
+					onClick={() => onApply(show.showFolder)}
+					disabled={applying !== null}
+					className="px-3 py-2.5 border-l border-border text-xs font-medium text-purple-300 hover:bg-purple-500/15 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shrink-0"
+				>
+					{isApplying ? "…" : "Rename"}
+				</button>
+			</div>
+			{open && (
+				<div className="border-t border-border divide-y divide-border">
+					{show.seasons.map((season) => (
+						<div key={season.seasonFolderCurrent} className="px-4 py-3 flex flex-col gap-2">
+							{season.seasonFolderChanged && (
+								<div className="flex items-center gap-2">
+									<span className="text-[10px] uppercase tracking-wider text-slate-600 w-14 shrink-0">Folder</span>
+									<NameChange from={season.displayCurrent} to={season.displayDesired} />
+								</div>
+							)}
+							{season.episodes.filter((e) => e.episodeChanged).map((ep) => (
+								<div key={ep.nameCurrent} className="flex items-center gap-2">
+									<span className="text-[10px] uppercase tracking-wider text-slate-600 w-14 shrink-0">
+										S{String(ep.epInfo.season).padStart(2, "0")}E{String(ep.epInfo.episode).padStart(2, "0")}
+									</span>
+									<NameChange from={ep.nameCurrent} to={ep.nameDesired} />
+									{!ep.title && <span className="text-[10px] text-amber-500 shrink-0">no title</span>}
+								</div>
+							))}
+						</div>
+					))}
+				</div>
+			)}
+		</div>
+	);
+}
+
+function MovieSection({ movie }) {
+	return (
+		<div className="border border-border rounded-lg px-4 py-3 flex flex-col gap-2">
+			{movie.folderChanged && (
+				<div className="flex items-center gap-2">
+					<span className="text-[10px] uppercase tracking-wider text-slate-600 w-14 shrink-0">Folder</span>
+					<NameChange from={movie.displayCurrent} to={movie.displayDesired} />
+				</div>
+			)}
+			{movie.files.filter((f) => f.fileChanged).map((f) => (
+				<div key={f.nameCurrent} className="flex items-center gap-2">
+					<span className="text-[10px] uppercase tracking-wider text-slate-600 w-14 shrink-0">File</span>
+					<NameChange from={f.nameCurrent} to={f.nameDesired} />
+				</div>
+			))}
+		</div>
+	);
+}
+
+export default function LibraryRename({ data, loading, onRefresh, onDataChange }) {
+	const [applying, setApplying] = useState(null);
+	const [result, setResult] = useState(null);
+	const [error, setError] = useState(null);
+	const [filter, setFilter] = useState("all");
+	const [missingTitleOnly, setMissingTitleOnly] = useState(false);
+	const [warningsOpen, setWarningsOpen] = useState(false);
+
+	async function apply(scope, showFolder = null) {
+		const key = showFolder ?? scope;
+		setApplying(key);
+		setError(null);
+		try {
+			const res = await fetch("/api/library/renames/apply", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(showFolder ? { scope: "series", showFolder } : { scope }),
+			});
+			const d = await res.json();
+			if (!res.ok) throw new Error(d.error ?? res.statusText);
+			setResult({ ...d, scope: showFolder ? "show" : scope, showFolder });
+			onDataChange(null);
+		} catch (e) {
+			setError(e.message);
+		} finally {
+			setApplying(null);
+		}
+	}
+
+	const stats = data?.stats;
+	const warnings = data?.warnings ?? { unparseable: [], tmdbShowsNotFound: [], multipleVideos: [] };
+	const warningCount = warnings.unparseable.length + warnings.tmdbShowsNotFound.length + (warnings.multipleVideos?.length ?? 0);
+	const movieChanges = stats ? stats.movieFolders + stats.movieFiles : 0;
+	const seriesChanges = stats ? stats.seasonFolders + stats.episodeFiles : 0;
+
+	const allShows = data?.shows ?? [];
+	const filteredShows = missingTitleOnly
+		? allShows.filter((s) => s.seasons.some((se) => se.episodes.some((e) => !e.title)))
+		: allShows;
+
+	return (
+		<div className="flex flex-col gap-6">
+			<div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+				<StatCard label="Movie folders" value={stats?.movieFolders ?? "—"} />
+				<StatCard label="Movie files" value={stats?.movieFiles ?? "—"} />
+				<StatCard label="Season folders" value={stats?.seasonFolders ?? "—"} />
+				<StatCard label="Episode files" value={stats?.episodeFiles ?? "—"} />
+			</div>
+
+			{/* Controls */}
+			<div className="flex items-center gap-3 flex-wrap">
+				<button
+					onClick={onRefresh}
+					disabled={loading || applying !== null}
+					className="px-4 py-1.5 rounded-md border border-indigo-700 bg-indigo-500/15 text-indigo-300 text-sm font-medium hover:bg-indigo-500/25 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+				>
+					{loading ? "Scanning…" : data ? "Re-scan" : "Scan library"}
+				</button>
+
+				{movieChanges > 0 && (
+					<button
+						onClick={() => apply("movies")}
+						disabled={applying !== null || loading}
+						className="px-4 py-1.5 rounded-md border border-sky-700 bg-sky-500/15 text-sky-300 text-sm font-medium hover:bg-sky-500/25 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+					>
+						{applying === "movies" ? "Renaming…" : `Rename movies (${movieChanges})`}
+					</button>
+				)}
+
+				{seriesChanges > 0 && (
+					<button
+						onClick={() => apply("series")}
+						disabled={applying !== null || loading}
+						className="px-4 py-1.5 rounded-md border border-purple-700 bg-purple-500/15 text-purple-300 text-sm font-medium hover:bg-purple-500/25 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+					>
+						{applying === "series" ? "Renaming…" : `Rename series (${seriesChanges})`}
+					</button>
+				)}
+
+				{stats?.total > 0 && (
+					<button
+						onClick={() => apply("all")}
+						disabled={applying !== null || loading}
+						className="px-4 py-1.5 rounded-md border border-emerald-700 bg-emerald-500/15 text-emerald-300 text-sm font-medium hover:bg-emerald-500/25 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+					>
+						{applying === "all" ? "Renaming…" : `Rename all (${stats.total})`}
+					</button>
+				)}
+
+				{data && stats?.total === 0 && (
+					<span className="text-sm text-emerald-400">Library is already correctly named</span>
+				)}
+			</div>
+
+			{error && (
+				<div className="bg-red-500/10 border border-red-800 rounded-lg px-4 py-3 text-sm text-red-400">{error}</div>
+			)}
+
+			{result && (
+				<div className={`border rounded-lg px-4 py-3 text-sm ${result.failed > 0 ? "bg-amber-500/10 border-amber-800 text-amber-300" : "bg-emerald-500/10 border-emerald-700 text-emerald-300"}`}>
+					{result.ok} rename{result.ok !== 1 ? "s" : ""} applied
+					{result.scope === "show" && result.showFolder && ` for ${result.showFolder.split("/").pop()}`}
+					{result.failed > 0 && ` · ${result.failed} failed`}
+					{result.errors?.length > 0 && (
+						<ul className="mt-2 text-xs font-mono space-y-1">
+							{result.errors.map((e, i) => <li key={i} className="text-red-400">{e.from}: {e.error}</li>)}
+						</ul>
+					)}
+				</div>
+			)}
+
+			{/* Warnings */}
+			{warningCount > 0 && (
+				<div className="border border-amber-800/50 rounded-lg overflow-hidden">
+					<button
+						className="w-full flex items-center justify-between px-4 py-2.5 bg-amber-500/10 hover:bg-amber-500/15 transition-colors text-left cursor-pointer"
+						onClick={() => setWarningsOpen((v) => !v)}
+					>
+						<span className="text-sm font-medium text-amber-400">{warningCount} warning{warningCount !== 1 ? "s" : ""}</span>
+						<svg className={`w-3.5 h-3.5 text-amber-500 transition-transform ${warningsOpen ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+					</button>
+					{warningsOpen && (
+						<div className="border-t border-amber-800/40 px-4 py-3 flex flex-col gap-3">
+							{warnings.tmdbShowsNotFound.length > 0 && (
+								<div className="flex flex-col gap-1.5">
+									<span className="text-xs font-semibold text-amber-500 uppercase tracking-wider">Shows not found in TMDB — episodes renamed without title</span>
+									{warnings.tmdbShowsNotFound.map((show) => (
+										<span key={show} className="text-xs text-slate-400 font-mono pl-2">{show}</span>
+									))}
+								</div>
+							)}
+							{warnings.multipleVideos?.length > 0 && (
+								<div className="flex flex-col gap-1.5">
+									<span className="text-xs font-semibold text-amber-500 uppercase tracking-wider">Multiple video files — skipped (would overwrite)</span>
+									{warnings.multipleVideos.map((folder) => (
+										<span key={folder} className="text-xs text-slate-400 font-mono pl-2">{folder}</span>
+									))}
+								</div>
+							)}
+							{warnings.unparseable.length > 0 && (
+								<div className="flex flex-col gap-1.5">
+									<span className="text-xs font-semibold text-amber-500 uppercase tracking-wider">Files with no episode info — skipped</span>
+									{warnings.unparseable.map((w, i) => (
+										<span key={i} className="text-xs text-slate-400 font-mono pl-2">{w.show} / {w.season} / {w.file}</span>
+									))}
+								</div>
+							)}
+						</div>
+					)}
+				</div>
+			)}
+
+			{/* Preview list */}
+			{stats?.total > 0 && (
+				<>
+					<div className="flex items-center gap-2 flex-wrap">
+						{[["all", "All"], ["movies", "Movies"], ["shows", "Shows"]].map(([id, label]) => (
+							<button
+								key={id}
+								onClick={() => setFilter(id)}
+								className={`px-3 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer border ${
+									filter === id
+										? "bg-indigo-500/20 border-indigo-700 text-indigo-300"
+										: "border-transparent text-slate-500 hover:text-slate-300"
+								}`}
+							>
+								{label}
+							</button>
+						))}
+						{(filter === "all" || filter === "shows") && allShows.some((s) => s.seasons.some((se) => se.episodes.some((e) => !e.title))) && (
+							<button
+								onClick={() => setMissingTitleOnly((v) => !v)}
+								className={`px-3 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer border ${
+									missingTitleOnly
+										? "bg-amber-500/20 border-amber-700 text-amber-300"
+										: "border-transparent text-slate-500 hover:text-amber-400"
+								}`}
+							>
+								Missing titles
+							</button>
+						)}
+					</div>
+
+					{(filter === "all" || filter === "movies") && data?.movies?.length > 0 && (
+						<div className="flex flex-col gap-2">
+							<h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500">Movies</h3>
+							{data.movies.map((m) => <MovieSection key={m.folderCurrent} movie={m} />)}
+						</div>
+					)}
+
+					{(filter === "all" || filter === "shows") && filteredShows.length > 0 && (
+						<div className="flex flex-col gap-2">
+							<h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+								TV Shows{missingTitleOnly && ` — ${filteredShows.length} with missing titles`}
+							</h3>
+							{filteredShows.map((s) => (
+								<ShowSection
+									key={s.showFolder}
+									show={s}
+									onApply={(folder) => apply("series", folder)}
+									applying={applying}
+								/>
+							))}
+						</div>
+					)}
+
+					{(filter === "all" || filter === "shows") && missingTitleOnly && filteredShows.length === 0 && (
+						<p className="text-sm text-slate-500">No shows with missing titles.</p>
+					)}
+				</>
+			)}
+		</div>
+	);
+}

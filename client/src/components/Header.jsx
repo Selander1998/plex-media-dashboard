@@ -13,6 +13,7 @@ const TABS = [
 	{ id: "missing_series", key: "tab_missing_series" },
 	{ id: "warnings", key: "tab_warnings" },
 	{ id: "quality", key: "tab_quality" },
+	{ id: "library", key: "tab_library" },
 ];
 
 export default function Header({
@@ -43,6 +44,7 @@ export default function Header({
 	onNotifRead,
 	onNotifClear,
 	qualityData,
+	renameData,
 }) {
 	const { lang, switchLang, t } = useLang();
 	const locale = lang === "sv" ? "sv-SE" : "en-US";
@@ -345,7 +347,7 @@ const totalSize = (report?.movies?.total_size ?? 0) + (report?.series?.total_siz
 						)}
 
 						{tabDef.id === "quality" && qualityData && (() => {
-							const METRIC = new Set(["low_resolution", "low_video_bitrate", "low_audio_bitrate"]);
+							const METRIC = new Set(["low_resolution", "high_resolution", "low_video_bitrate", "low_audio_bitrate"]);
 							const hasMetric = (item) => item.issues.some((i) => { const t = i.indexOf(":") === -1 ? i : i.slice(0, i.indexOf(":")); return METRIC.has(t); });
 							const count = (qualityData.movies ?? []).filter(hasMetric).length + (qualityData.series ?? []).filter(hasMetric).length;
 							return count > 0 ? (
@@ -377,6 +379,11 @@ const totalSize = (report?.movies?.total_size ?? 0) + (report?.series?.total_siz
 									</span>
 								) : null;
 							})()}
+						{tabDef.id === "library" && renameData && renameData.stats.total > 0 && (
+							<span className={`text-[11px] px-1.5 py-px rounded-full min-w-5 text-center ${tab === tabDef.id ? "bg-indigo-500 text-white" : "bg-surface2 text-slate-400"}`}>
+								{renameData.stats.total}
+							</span>
+						)}
 					</button>
 				))}
 			</nav>

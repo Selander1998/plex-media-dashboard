@@ -5,6 +5,7 @@ import Torrents from "./components/Torrents.jsx";
 import Watchlist from "./components/Watchlist.jsx";
 import Warnings from "./components/Warnings.jsx";
 import QualityReport from "./components/QualityReport.jsx";
+import LibraryRename from "./components/LibraryRename.jsx";
 import Header from "./components/Header.jsx";
 import UpdateModal from "./components/UpdateModal.jsx";
 import PasteModal from "./components/PasteModal.jsx";
@@ -59,6 +60,26 @@ function AppContent() {
 		loadQualityData();
 	}, [tab, qualityData]);
 
+	const [renameData, setRenameData] = useState(null);
+	const [renameLoading, setRenameLoading] = useState(false);
+	const renameLoadingRef = useRef(false);
+
+	function loadRenameData() {
+		if (renameLoadingRef.current) return;
+		renameLoadingRef.current = true;
+		setRenameLoading(true);
+		fetch("/api/library/renames")
+			.then((r) => { if (!r.ok) throw new Error(r.statusText); return r.json(); })
+			.then((d) => { setRenameData(d); setRenameLoading(false); })
+			.catch(() => { setRenameLoading(false); })
+			.finally(() => { renameLoadingRef.current = false; });
+	}
+
+	useEffect(() => {
+		if (tab !== "library" || renameData || renameLoadingRef.current) return;
+		loadRenameData();
+	}, [tab, renameData]);
+
 	const { settings, updateSetting } = useSettings();
 	const { toasts, history: notifHistory, unread: notifUnread, pushToast, clearUnread: onNotifRead, clearHistory: onNotifClear } = useToasts();
 
@@ -71,7 +92,7 @@ function AppContent() {
 	const { savePaths, tempPaths, savePathIdx, setSavePathIdx, diskSpace, totalDiskCapacity } = useSavePaths();
 
 	const { refreshing, updateStatus, updateLog, updateStats, noTmdbCache, noQualityCache, tick, timestamps, logRef, handleRefresh, handleAbort, handleClose } = useUpdate({
-		onSuccess: () => { loadData(); setQualityData(null); loadQualityData(); },
+		onSuccess: () => { loadData(); setQualityData(null); loadQualityData(); setRenameData(null); loadRenameData(); },
 		onError: (msg) => pushToast(msg, true),
 	});
 
@@ -139,6 +160,7 @@ function AppContent() {
 				onNotifRead={onNotifRead}
 				onNotifClear={onNotifClear}
 				qualityData={qualityData}
+				renameData={renameData}
 			/>
 
 			<main className="flex-1 p-3 sm:p-6 max-w-350 w-full mx-auto">
@@ -188,6 +210,7 @@ function AppContent() {
 				)}
 				{tab === "warnings" && <Warnings report={report} error={reportError} loading={!report && !reportError} qualityData={qualityData} onToast={pushToast} />}
 				{tab === "quality" && <QualityReport data={qualityData} error={qualityError} loading={qualityLoading} />}
+				{tab === "library" && <LibraryRename data={renameData} loading={renameLoading} onRefresh={loadRenameData} onDataChange={setRenameData} />}
 			</main>
 
 			{pasteMode && (

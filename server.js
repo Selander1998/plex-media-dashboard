@@ -1,7 +1,7 @@
 import express from "express";
-import { readFile, writeFile, statfs, stat, unlink } from "fs/promises";
+import { readFile, writeFile, statfs, stat, unlink, copyFile, mkdir, readdir, rename as fsRename } from "fs/promises";
 import { fileURLToPath } from "url";
-import { join, dirname, resolve } from "path";
+import { join, dirname, resolve, basename, extname } from "path";
 import { spawn, execSync } from "child_process";
 
 const app = express();
@@ -43,6 +43,7 @@ const PLEX_TOKEN = process.env.PLEX_TOKEN || "";
 const NTFY_URL = process.env.NTFY_URL || "";
 const NTFY_USER = process.env.NTFY_USER || "";
 const NTFY_PASS = process.env.NTFY_PASS || "";
+const TMDB_API_KEY = process.env.TMDB_API_KEY || "";
 
 const GIT_HASH = (() => {
 	try { return execSync("git rev-parse --short HEAD", { encoding: "utf8" }).trim(); }
@@ -506,6 +507,25 @@ app.post("/api/torrents/rename", async (req, res) => {
 	}
 });
 
+app.post("/api/torrents/process", async (req, res) => {
+	const { hash } = req.body ?? {};
+	if (!hash) return res.status(400).json({ error: "hash required" });
+	if (processingTorrents.has(hash)) return res.status(409).json({ error: "Already processing" });
+	try {
+		const qres = await qbitFetch("/api/v2/torrents/info");
+		const torrents = await qres.json();
+		const torrent = torrents.find((t) => t.hash === hash);
+		if (!torrent) return res.status(404).json({ error: "Torrent not found" });
+		processingTorrents.add(hash);
+		processTorrent(torrent)
+			.catch((e) => console.error(`[process] error for "${torrent.name}": ${e.message}`))
+			.finally(() => processingTorrents.delete(hash));
+		res.json({ ok: true });
+	} catch (err) {
+		res.status(500).json({ error: "Failed to start processing", detail: err.message });
+	}
+});
+
 app.get("/api/torrents", async (req, res) => {
 	try {
 		const qres = await qbitFetch("/api/v2/torrents/info");
@@ -531,6 +551,672 @@ app.get("/api/qbit/transfer", async (req, res) => {
 const SEEDING_STATES = new Set(["uploading", "stalledUP", "queuedUP"]);
 const DONE_STATES = new Set(["pausedUP", "stoppedUP", "uploading", "stalledUP"]);
 let autoPauseSeeding = true;
+
+// === Torrent auto-process ===
+const MEDIA_EXTS = new Set([".mkv", ".mp4", ".avi", ".mov", ".wmv", ".m4v", ".ts", ".m2ts"]);
+const SUBTITLE_EXTS = new Set([".srt", ".ass", ".sub", ".ssa", ".vtt"]);
+const MOVIES_ROOTS = (process.env.MOVIES_ROOTS || "").split(",").map((p) => p.trim()).filter(Boolean);
+const SERIES_ROOTS = (process.env.SERIES_ROOTS || "").split(",").map((p) => p.trim()).filter(Boolean);
+const processingTorrents = new Set();
+
+function detectMediaType(name) {
+	if (/\bS\d{2}/i.test(name)) return "series";
+	if (/\b(?:E|EP|Episode)[._\s]?\d{2,4}\b/i.test(name)) return "series";
+	return "movies";
+}
+
+function cleanShowName(raw) {
+	return raw
+		.replace(/[._]+/g, " ")
+		.replace(/\s+(?:Season|Series|S)\s*\d+\s*$/i, "") // strip trailing "Season 22" / "S22"
+		.trim();
+}
+
+function parseSeriesInfo(name) {
+	// Standard S##[E##]
+	const m = name.match(/^(.+?)[._\s]+[Ss](\d+)/);
+	if (m) return { showName: cleanShowName(m[1]), season: `Season ${parseInt(m[2], 10)}` };
+	// Anime absolute: Show.Name.Episode.047 or Show.Name.EP047
+	const anime = name.match(/^(.+?)[._\s]+(?:[Ee][Pp]?(?:isode)?[._\s]?)(\d{2,4})\b/i);
+	if (anime) return { showName: cleanShowName(anime[1]), season: "Season 1" };
+	return null;
+}
+
+function parseSeasonFromFilename(fileName) {
+	const m = fileName.match(/[Ss](\d+)[Ee]\d+/);
+	return m ? parseInt(m[1], 10) : null;
+}
+
+const QUALITY_TAGS_RE = /\b(2160p|1080p|720p|480p|4[Kk]|UHD|BluRay|Blu-Ray|BDRip|BRRip|WEB[-.]?DL|WEBRip|HDTV|DVDRip|REMUX|HDR|DV|x264|x265|HEVC|H\.?26[45]|AVC|AAC|DTS|AC3|Atmos|TrueHD|FLAC|MULTI|DUAL|REPACK|PROPER|EXTENDED|THEATRICAL|DIRECTORS\.?CUT)\b.*/i;
+
+function parseMovieInfo(name) {
+	const base = name.replace(/\.(mkv|mp4|avi|mov|wmv|m4v|ts|m2ts)$/i, "");
+	const yearRe = /\b((?:19|20)\d{2})\b/g;
+	let match;
+	while ((match = yearRe.exec(base)) !== null) {
+		const rawTitle = base.slice(0, match.index);
+		// If the slice before the year has no spaces, dots/underscores are word separators — replace them.
+		// If it already has spaces, dots are part of the title (e.g. "Dr.", "2.5") — leave them alone.
+		const hasSeparatorDots = !rawTitle.includes(" ");
+		let title = hasSeparatorDots
+			? rawTitle.replace(/[._]+/g, " ").trim()
+			: rawTitle.replace(/\s*\($/, "").trim();
+		// Normalize digit-dash-word ("3-Word", "3 -Word") → "3 - Word" (subtitle separator)
+		// Does not affect compound words like "Spider-Man" where letter precedes the dash.
+		title = title.replace(/(\d)\s*-\s*/g, "$1 - ").replace(/\s{2,}/g, " ").trim();
+		if (title.length > 0) return { title, year: match[1] };
+	}
+	// No year with content before it — strip quality tags and clean up
+	const stripped = base.replace(QUALITY_TAGS_RE, "").replace(/[._]+/g, " ").trim();
+	return { title: stripped || base.replace(/[._]+/g, " ").trim(), year: null };
+}
+
+function findDestRoot(savePath, roots) {
+	const base = TORRENT_SAVE_PATHS.find((p) => savePath.startsWith(p));
+	if (!base) return null;
+	const mountParts = base.split("/").filter(Boolean).slice(0, 2); // ["mnt", "diskname"]
+	return roots.find((r) => {
+		const rp = r.split("/").filter(Boolean);
+		return mountParts.every((p, i) => rp[i] === p);
+	}) ?? null;
+}
+
+function sendNtfy({ title, body, tags = "", priority = "default" }) {
+	if (!NTFY_URL) return;
+	fetch(NTFY_URL, {
+		method: "POST",
+		headers: {
+			"Authorization": "Basic " + Buffer.from(`${NTFY_USER}:${NTFY_PASS}`).toString("base64"),
+			"Title": title,
+			"Tags": tags,
+			"Priority": priority,
+		},
+		body,
+	}).catch((e) => console.error("[ntfy] error:", e.message));
+}
+
+function shortPath(fullPath) {
+	for (const root of [...MOVIES_ROOTS, ...SERIES_ROOTS]) {
+		if (fullPath.startsWith(root)) {
+			const disk = root.split("/").filter(Boolean)[1];
+			const rel = fullPath.slice(root.length).replace(/^\//, "");
+			return rel ? `${disk}/${rel}` : disk;
+		}
+	}
+	return fullPath;
+}
+
+async function findExistingShowRoot(showName) {
+	const needle = showName.toLowerCase();
+	for (const root of SERIES_ROOTS) {
+		let entries;
+		try { entries = await readdir(root, { withFileTypes: true }); } catch { continue; }
+		for (const entry of entries) {
+			if (!entry.isDirectory()) continue;
+			const folderClean = entry.name.replace(/\s*\(\d{4}\)\s*$/, "").toLowerCase().trim();
+			if (folderClean === needle) return { root, folderName: entry.name };
+		}
+	}
+	return null;
+}
+
+async function walkFiles(dir) {
+	const entries = await readdir(dir, { withFileTypes: true });
+	const files = [];
+	for (const entry of entries) {
+		const full = join(dir, entry.name);
+		if (entry.isDirectory()) files.push(...await walkFiles(full));
+		else files.push(full);
+	}
+	return files;
+}
+
+const BAD_CODECS = new Set(["mpeg1video", "mpeg2video", "h263", "xvid", "divx", "wmv1", "wmv2", "rv10", "rv20", "msmpeg4v2", "msmpeg4v3"]);
+const EFFICIENT_CODECS = new Set(["hevc", "h265", "x265", "av1", "vp9"]);
+const BITRATE_RATIOS = [[2160, 4.0], [1080, 1.0], [720, 0.4], [0, 0.2]];
+
+async function ffprobeFile(filePath) {
+	return new Promise((resolve) => {
+		const ac = new AbortController();
+		const timer = setTimeout(() => ac.abort(), 30_000);
+		const proc = spawn(
+			"ffprobe",
+			["-v", "quiet", "-print_format", "json", "-show_streams", "-show_format", filePath],
+			{ signal: ac.signal }
+		);
+		let stdout = "";
+		proc.stdout.on("data", (d) => { stdout += d; });
+		proc.on("close", (code) => {
+			clearTimeout(timer);
+			if (code !== 0) return resolve(null);
+			try { resolve(JSON.parse(stdout)); } catch { resolve(null); }
+		});
+		proc.on("error", () => { clearTimeout(timer); resolve(null); });
+	});
+}
+
+async function checkVideoQuality(filePath, settings = {}) {
+	const { resolution_threshold = 0, resolution_max = 0, video_bitrate_1080p = 0, audio_bitrate_min = 0 } = settings;
+	const data = await ffprobeFile(filePath);
+	if (!data) return ["corrupt_or_unreadable"];
+
+	const streams = data.streams ?? [];
+	const fmt = data.format ?? {};
+	const issues = [];
+
+	const video = streams.find((s) => s.codec_type === "video");
+	const audio = streams.find((s) => s.codec_type === "audio");
+	if (!video) return ["no_video_stream"];
+
+	const codec = (video.codec_name ?? "").toLowerCase();
+	if (BAD_CODECS.has(codec)) issues.push(`bad_codec:${codec}`);
+
+	const height = video.height ?? 0;
+	if (resolution_threshold > 0 && height && height < resolution_threshold)
+		issues.push(`low_resolution:${video.width}x${height}`);
+	if (resolution_max > 0 && height && height > resolution_max)
+		issues.push(`high_resolution:${video.width}x${height}`);
+
+	if (video_bitrate_1080p > 0 && height) {
+		const ratio = BITRATE_RATIOS.find(([h]) => height >= h)[1];
+		let threshold = Math.floor(video_bitrate_1080p * ratio);
+		if (EFFICIENT_CODECS.has(codec)) threshold = Math.floor(threshold / 2);
+		const vbr = Math.floor(parseInt(video.bit_rate || fmt.bit_rate || "0", 10) / 1000);
+		if (vbr > 0 && vbr < threshold) issues.push(`low_video_bitrate:${vbr}kbps`);
+	}
+
+	if (!audio) {
+		issues.push("no_audio_stream");
+	} else if (audio_bitrate_min > 0) {
+		const abr = Math.floor(parseInt(audio.bit_rate || "0", 10) / 1000);
+		if (abr > 0 && abr < audio_bitrate_min) issues.push(`low_audio_bitrate:${abr}kbps`);
+	}
+
+	return issues;
+}
+
+async function moveFile(src, dest) {
+	try {
+		await fsRename(src, dest);
+	} catch (err) {
+		if (err.code !== "EXDEV") throw err;
+		console.log(`[process] Cross-device copy (slow): ${basename(src)}`);
+		await copyFile(src, dest);
+		await unlink(src);
+	}
+}
+
+async function processTorrent(torrent) {
+	const { hash, name, content_path, save_path } = torrent;
+	const type = detectMediaType(name);
+	const roots = type === "series" ? SERIES_ROOTS : MOVIES_ROOTS;
+	const destRoot = findDestRoot(save_path, roots);
+
+	if (!destRoot) {
+		const msg = `No ${type} destination configured for ${save_path}`;
+		console.error(`[process] ${msg}`);
+		sendNtfy({ title: "Processing failed", body: `${name}\n${msg}`, tags: "warning", priority: "high" });
+		return;
+	}
+
+	const contentStat = await stat(content_path).catch(() => null);
+	if (!contentStat) {
+		const msg = `Content path not found: ${content_path}`;
+		console.error(`[process] ${msg}`);
+		sendNtfy({ title: "Processing failed", body: `${name}\n${msg}`, tags: "warning", priority: "high" });
+		return;
+	}
+
+	const allFiles = contentStat.isDirectory() ? await walkFiles(content_path) : [content_path];
+	const isSample = (f) => /\bsample\b/i.test(basename(f));
+	const videoFiles = allFiles.filter((f) => MEDIA_EXTS.has(extname(f).toLowerCase()) && !isSample(f));
+	const subtitleFiles = allFiles.filter((f) => SUBTITLE_EXTS.has(extname(f).toLowerCase()) && !isSample(f));
+
+	if (videoFiles.length === 0) {
+		const msg = "No video files found in downloaded content";
+		console.error(`[process] ${msg}: ${content_path}`);
+		sendNtfy({ title: "Processing failed", body: `${name}\n${msg}`, tags: "warning", priority: "high" });
+		return;
+	}
+
+	// --- Quality gate: check every video file before touching the library ---
+	{
+		let qSettings = {};
+		try { qSettings = JSON.parse(await readFile(QUALITY_SETTINGS_PATH, "utf-8")); } catch { /* use defaults */ }
+
+		const badFiles = [];
+		for (const f of videoFiles) {
+			console.log(`[process] Quality checking: ${basename(f)}`);
+			const issues = await checkVideoQuality(f, qSettings);
+			if (issues.length > 0) badFiles.push({ file: basename(f), issues });
+		}
+
+		if (badFiles.length > 0) {
+			const lines = badFiles.map(({ file, issues }) => `• ${file}: ${issues.join(", ")}`).join("\n");
+			console.log(`[process] Quality gate blocked "${name}":\n${lines}`);
+			sendNtfy({
+				title: "Quality check failed — not added",
+				body: `${name}\n${lines}\nTorrent kept in queue for review`,
+				tags: "warning",
+				priority: "high",
+			});
+			return; // Torrent untouched — user reviews manually
+		}
+	}
+
+	// --- Pre-compute type-specific metadata ---
+	const movieInfo = type === "movies" ? parseMovieInfo(name) : null;
+	const cleanMovieName = movieInfo
+		? (movieInfo.year ? `${movieInfo.title} (${movieInfo.year})` : movieInfo.title)
+		: null;
+
+	const seriesInfo = type === "series" ? parseSeriesInfo(name) : null;
+	if (type === "series" && !seriesInfo) {
+		const msg = "Could not parse show name from torrent name";
+		console.error(`[process] ${msg}: "${name}"`);
+		sendNtfy({ title: "Processing failed", body: `${name}\n${msg}`, tags: "warning", priority: "high" });
+		return;
+	}
+
+	// For series: resolve the root (follow show to existing disk if present)
+	let crossDiskNote = "";
+	let seriesShowRoot = null;
+	if (type === "series") {
+		const existing = await findExistingShowRoot(seriesInfo.showName);
+		if (existing && existing.root !== destRoot) {
+			const fromDisk = destRoot.split("/").filter(Boolean)[1];
+			const toDisk = existing.root.split("/").filter(Boolean)[1];
+			crossDiskNote = `Followed show from ${fromDisk} → ${toDisk}`;
+			console.log(`[process] ${crossDiskNote} for "${existing.folderName}"`);
+		}
+		// Use the actual on-disk folder name (preserves year suffix like "(1999)")
+		seriesShowRoot = existing
+			? join(existing.root, existing.folderName)
+			: join(destRoot, seriesInfo.showName);
+	}
+
+	// For movies: check for existing folder and quality-flag gate
+	let movieDestFolder = null;
+	let oldFilesToDelete = [];
+	if (type === "movies") {
+		movieDestFolder = join(destRoot, cleanMovieName ?? name);
+		const folderExists = await stat(movieDestFolder).then((s) => s.isDirectory()).catch(() => false);
+		if (folderExists) {
+			const oldVideos = (await walkFiles(movieDestFolder))
+				.filter((f) => MEDIA_EXTS.has(extname(f).toLowerCase()));
+			if (oldVideos.length > 0) {
+				let qualityFlagged = false;
+				try {
+					const qReport = JSON.parse(await readFile(QUALITY_REPORT_PATH, "utf-8"));
+					const flaggedPaths = new Set((qReport.movies ?? []).map((m) => resolve(m.full_path)));
+					qualityFlagged = oldVideos.some((f) => flaggedPaths.has(resolve(f)));
+				} catch { /* report missing — treat as clean */ }
+
+				if (!qualityFlagged) {
+					const label = cleanMovieName ?? name;
+					const msg = "Already in library with no quality issues — not replaced";
+					console.log(`[process] Skipping replacement for "${label}": existing file is clean`);
+					sendNtfy({
+						title: "Duplicate not replaced",
+						body: `${label}\n${msg}\nNew file: ${shortPath(content_path)}`,
+						tags: "warning",
+						priority: "high",
+					});
+					return;
+				}
+				// Defer deletion until after the new files are confirmed moved
+				oldFilesToDelete = oldVideos;
+			}
+		}
+	}
+
+	// --- Move files ---
+	console.log(`[process] "${name}" → ${type === "series" ? seriesShowRoot : movieDestFolder} (${videoFiles.length} video, ${subtitleFiles.length} sub)`);
+
+	let addedVideoCount = 0;
+	let skippedVideoCount = 0;
+	try {
+		if (type === "series") {
+			for (const f of [...videoFiles, ...subtitleFiles]) {
+				// Route each file to its own season folder based on the file's S##E## tag
+				const seasonNum = parseSeasonFromFilename(basename(f));
+				const seasonLabel = seasonNum != null ? `Season ${seasonNum}` : seriesInfo.season;
+				// Guard: seriesShowRoot shouldn't already end with the season folder
+				const targetDir = basename(seriesShowRoot) === seasonLabel
+					? seriesShowRoot
+					: join(seriesShowRoot, seasonLabel);
+
+				// Skip if this S##E## already exists in the target directory
+				const epInfo = parseEpisodeInfo(basename(f));
+				if (epInfo) {
+					const sTag = `s${String(epInfo.season).padStart(2, "0")}e${String(epInfo.episode).padStart(2, "0")}`;
+					let dirEntries = [];
+					try { dirEntries = await readdir(targetDir); } catch { /* dir doesn't exist yet — no conflict */ }
+					if (dirEntries.some((n) => n.toLowerCase().includes(sTag))) {
+						console.log(`[process] skip existing S${String(epInfo.season).padStart(2, "0")}E${String(epInfo.episode).padStart(2, "0")}: ${basename(f)}`);
+						if (MEDIA_EXTS.has(extname(f).toLowerCase())) skippedVideoCount++;
+						continue;
+					}
+				}
+
+				await mkdir(targetDir, { recursive: true });
+				const movedPath = join(targetDir, basename(f));
+				await moveFile(f, movedPath);
+				if (MEDIA_EXTS.has(extname(f).toLowerCase())) addedVideoCount++;
+
+				// Rename to Plex format: Show - SXXEXX - Title.ext
+				const ext = extname(basename(f)).toLowerCase();
+				if (MEDIA_EXTS.has(ext) || SUBTITLE_EXTS.has(ext)) {
+					if (epInfo) {
+						const epTitle = await fetchTmdbEpisodeTitle(seriesInfo.showName, epInfo.season, epInfo.episode);
+						const newFilename = buildEpisodeFilename(seriesInfo.showName, epInfo.season, epInfo.episode, epTitle) + ext;
+						await fsRename(movedPath, join(targetDir, newFilename)).catch((err) =>
+							console.warn(`[process] episode rename failed: ${err.message}`)
+						);
+					}
+				}
+			}
+		} else {
+			await mkdir(movieDestFolder, { recursive: true });
+			for (const f of [...videoFiles, ...subtitleFiles]) {
+				let destName = basename(f);
+				if (cleanMovieName && videoFiles.length === 1 && MEDIA_EXTS.has(extname(f).toLowerCase())) {
+					destName = cleanMovieName + extname(f).toLowerCase();
+				}
+				await moveFile(f, join(movieDestFolder, destName));
+			}
+		}
+	} catch (err) {
+		const msg = `Failed to move files: ${err.message}`;
+		console.error(`[process] ${msg}`);
+		sendNtfy({ title: "Processing failed", body: `${name}\n${msg}`, tags: "warning", priority: "high" });
+		return; // Torrent preserved — source files intact for manual recovery
+	}
+
+	// New files confirmed moved — now safe to delete old quality-flagged files
+	for (const f of oldFilesToDelete) await unlink(f).catch(() => {});
+	if (oldFilesToDelete.length) console.log(`[process] Deleted ${oldFilesToDelete.length} replaced file(s)`);
+
+	await qbitFetch("/api/v2/torrents/delete", {
+		method: "POST",
+		headers: { "Content-Type": "application/x-www-form-urlencoded" },
+		body: new URLSearchParams({ hashes: hash, deleteFiles: "true" }),
+	}).catch((err) => console.error(`[process] torrent delete failed: ${err.message}`));
+
+	console.log(`[process] done: "${name}"`);
+
+	// --- Notification ---
+	const subLine = subtitleFiles.length > 0 ? ` · ${subtitleFiles.length} subtitle${subtitleFiles.length > 1 ? "s" : ""}` : "";
+
+	let ntfyTitle, ntfyBody;
+	if (type === "series") {
+		const seriesLabel = `${seriesInfo.showName} · ${seriesInfo.season}`;
+		if (addedVideoCount === 0) {
+			ntfyTitle = "No new episodes — already in library";
+			ntfyBody = [seriesLabel, `${skippedVideoCount} episode${skippedVideoCount !== 1 ? "s" : ""} already present`, crossDiskNote].filter(Boolean).join("\n");
+		} else {
+			ntfyTitle = addedVideoCount > 1 ? "Episodes added to library" : "Episode added to library";
+			const addedWord = `${addedVideoCount} episode${addedVideoCount !== 1 ? "s" : ""}${subLine}`;
+			const skipNote = skippedVideoCount > 0 ? `${skippedVideoCount} already present — skipped` : null;
+			ntfyBody = [seriesLabel, addedWord, skipNote, crossDiskNote, `→ ${shortPath(seriesShowRoot)}/`].filter(Boolean).join("\n");
+		}
+	} else {
+		ntfyTitle = "Movie added to library";
+		ntfyBody = [
+			cleanMovieName ?? name,
+			`1 video file${subLine}`,
+			`→ ${shortPath(movieDestFolder)}/`,
+		].filter(Boolean).join("\n");
+	}
+
+	sendNtfy({ title: ntfyTitle, body: ntfyBody, tags: "white_check_mark" });
+}
+// === Library rename ===
+
+function sanitizeFilename(str) {
+	return str.replace(/[/\\:*?"<>|]/g, "").replace(/\s{2,}/g, " ").trim();
+}
+
+function pad2(n) { return String(n).padStart(2, "0"); }
+
+function parseEpisodeInfo(filename) {
+	const m = filename.match(/[Ss](\d+)[Ee](\d+)/);
+	return m ? { season: parseInt(m[1], 10), episode: parseInt(m[2], 10) } : null;
+}
+
+function normalizeSeasonFolderName(name) {
+	const m = name.match(/^[Ss](?:eason\s*)?(\d+)$/i);
+	return m ? `Season ${parseInt(m[1], 10)}` : null;
+}
+
+// In-memory TMDB caches (persist for server lifetime)
+const _tmdbShowIdCache = new Map();
+const _tmdbSeasonCache = new Map(); // "showId:season" → Map<episodeNum, title>
+
+async function fetchTmdbShowId(showName) {
+	if (!TMDB_API_KEY) return null;
+	if (_tmdbShowIdCache.has(showName)) return _tmdbShowIdCache.get(showName);
+	try {
+		const res = await fetch(
+			`https://api.themoviedb.org/3/search/tv?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(showName)}`,
+			{ signal: AbortSignal.timeout(8_000) }
+		);
+		const data = await res.json();
+		const results = data.results ?? [];
+		const match = results.find((r) => r.name.toLowerCase() === showName.toLowerCase()) ?? results[0] ?? null;
+		const id = match?.id ?? null;
+		_tmdbShowIdCache.set(showName, id);
+		return id;
+	} catch {
+		return null;
+	}
+}
+
+async function fetchTmdbEpisodeTitle(showName, season, episode) {
+	if (!TMDB_API_KEY) return null;
+	const showId = await fetchTmdbShowId(showName);
+	if (!showId) return null;
+	const seasonKey = `${showId}:${season}`;
+	if (!_tmdbSeasonCache.has(seasonKey)) {
+		try {
+			const res = await fetch(
+				`https://api.themoviedb.org/3/tv/${showId}/season/${season}?api_key=${TMDB_API_KEY}`,
+				{ signal: AbortSignal.timeout(8_000) }
+			);
+			const map = new Map();
+			if (res.ok) {
+				const data = await res.json();
+				for (const ep of data.episodes ?? []) map.set(ep.episode_number, ep.name);
+			}
+			_tmdbSeasonCache.set(seasonKey, map);
+		} catch {
+			_tmdbSeasonCache.set(seasonKey, new Map());
+		}
+	}
+	return _tmdbSeasonCache.get(seasonKey).get(episode) ?? null;
+}
+
+function buildEpisodeFilename(showName, season, episode, title) {
+	const base = `${showName} - S${pad2(season)}E${pad2(episode)}`;
+	return title ? `${base} - ${sanitizeFilename(title)}` : base;
+}
+
+async function buildRenamePlan() {
+	const movies = [];
+	const shows = [];
+	const warnings = { unparseable: [], tmdbShowsNotFound: [], multipleVideos: [] };
+
+	// --- Movies ---
+	for (const root of MOVIES_ROOTS) {
+		let entries;
+		try { entries = await readdir(root, { withFileTypes: true }); } catch { continue; }
+		for (const entry of entries) {
+			if (!entry.isDirectory()) continue;
+			const folderCurrent = join(root, entry.name);
+			const info = parseMovieInfo(entry.name);
+			const expectedFolder = info.year
+				? `${sanitizeFilename(info.title)} (${info.year})`
+				: sanitizeFilename(info.title);
+			const folderDesired = join(root, expectedFolder);
+			const folderChanged = entry.name !== expectedFolder;
+
+			const files = [];
+			let fileEntries;
+			try { fileEntries = await readdir(folderCurrent, { withFileTypes: true }); } catch { fileEntries = []; }
+
+			const videoEntries = fileEntries.filter((fe) => fe.isFile() && MEDIA_EXTS.has(extname(fe.name).toLowerCase()));
+			if (videoEntries.length > 1) {
+				// Multiple video files — renaming would produce duplicate targets; skip and warn
+				warnings.multipleVideos.push(entry.name);
+			} else {
+				for (const fe of videoEntries) {
+					const ext = extname(fe.name).toLowerCase();
+					const nameDesired = `${expectedFolder}${ext}`;
+					files.push({ nameCurrent: fe.name, nameDesired, fileChanged: fe.name !== nameDesired });
+				}
+			}
+
+			if (folderChanged || files.some((f) => f.fileChanged)) {
+				movies.push({ folderCurrent, folderDesired, folderChanged, displayCurrent: entry.name, displayDesired: expectedFolder, files });
+			}
+		}
+	}
+
+	// --- Series ---
+	for (const root of SERIES_ROOTS) {
+		let showEntries;
+		try { showEntries = await readdir(root, { withFileTypes: true }); } catch { continue; }
+		for (const showEntry of showEntries) {
+			if (!showEntry.isDirectory()) continue;
+			const showFolder = join(root, showEntry.name);
+			const showName = showEntry.name;
+			// Strip year suffix and clean separators for episode filenames and TMDB queries.
+			// The folder name stays as-is; only the PREFIX used inside episode filenames changes.
+			const showNameClean = showName.replace(/[._]+/g, " ").replace(/\s*\(\d{4}\)\s*$/, "").trim();
+			const seasons = [];
+
+			// Check TMDB show lookup once per show (result is cached)
+			const tmdbId = await fetchTmdbShowId(showNameClean);
+			if (!tmdbId && !warnings.tmdbShowsNotFound.includes(showNameClean)) {
+				warnings.tmdbShowsNotFound.push(showNameClean);
+			}
+
+			let seasonEntries;
+			try { seasonEntries = await readdir(showFolder, { withFileTypes: true }); } catch { continue; }
+			for (const seasonEntry of seasonEntries) {
+				if (!seasonEntry.isDirectory()) continue;
+				const seasonFolderCurrent = join(showFolder, seasonEntry.name);
+				const normalized = normalizeSeasonFolderName(seasonEntry.name);
+				if (!normalized) continue; // skip non-season folders (Specials etc)
+				const seasonFolderDesired = join(showFolder, normalized);
+				const seasonFolderChanged = seasonEntry.name !== normalized;
+
+				const episodes = [];
+				let epEntries;
+				try { epEntries = await readdir(seasonFolderCurrent, { withFileTypes: true }); } catch { continue; }
+				for (const epEntry of epEntries) {
+					if (!epEntry.isFile()) continue;
+					let ext = extname(epEntry.name).toLowerCase();
+					if (!MEDIA_EXTS.has(ext) && !SUBTITLE_EXTS.has(ext)) continue;
+					// Preserve language tag on subtitle files (e.g. .en.srt → keep ".en.srt")
+					if (SUBTITLE_EXTS.has(ext)) {
+						const inner = extname(epEntry.name.slice(0, -ext.length)).toLowerCase();
+						if (/^\.[a-z]{2,3}$/.test(inner)) ext = inner + ext;
+					}
+					const epInfo = parseEpisodeInfo(epEntry.name);
+					if (!epInfo) {
+						warnings.unparseable.push({ show: showNameClean, season: seasonEntry.name, file: epEntry.name });
+						continue;
+					}
+					const title = await fetchTmdbEpisodeTitle(showNameClean, epInfo.season, epInfo.episode);
+					const nameDesired = buildEpisodeFilename(showNameClean, epInfo.season, epInfo.episode, title) + ext;
+					// episodeChanged = the file itself needs renaming (independent of season folder)
+					const epChanged = epEntry.name !== nameDesired;
+					episodes.push({ nameCurrent: epEntry.name, nameDesired, episodeChanged: epChanged, epInfo, title: title ?? null });
+				}
+
+				if (seasonFolderChanged || episodes.some((e) => e.episodeChanged)) {
+					seasons.push({
+						seasonFolderCurrent, seasonFolderDesired, seasonFolderChanged,
+						displayCurrent: seasonEntry.name, displayDesired: normalized,
+						episodes,
+					});
+				}
+			}
+
+			if (seasons.length > 0) shows.push({ showName, showNameClean, showFolder, seasons });
+		}
+	}
+
+	const statsMovieFolders = movies.filter((m) => m.folderChanged).length;
+	const statsMovieFiles = movies.reduce((a, m) => a + m.files.filter((f) => f.fileChanged).length, 0);
+	const statsSeasonFolders = shows.reduce((a, s) => a + s.seasons.filter((se) => se.seasonFolderChanged).length, 0);
+	const statsEpisodeFiles = shows.reduce((a, s) => a + s.seasons.reduce((b, se) => b + se.episodes.filter((e) => e.episodeChanged).length, 0), 0);
+	const statsTmdbFailed = shows.reduce((a, s) => a + s.seasons.reduce((b, se) => b + se.episodes.filter((e) => !e.title).length, 0), 0);
+	const movieTotal = statsMovieFolders + statsMovieFiles;
+	const seriesTotal = statsSeasonFolders + statsEpisodeFiles;
+	const total = movieTotal + seriesTotal;
+
+	return { movies, shows, warnings, stats: { movieFolders: statsMovieFolders, movieFiles: statsMovieFiles, movieTotal, seasonFolders: statsSeasonFolders, episodeFiles: statsEpisodeFiles, seriesTotal, total, tmdbFailed: statsTmdbFailed } };
+}
+
+app.get("/api/library/renames", async (req, res) => {
+	try {
+		const plan = await buildRenamePlan();
+		res.json(plan);
+	} catch (err) {
+		res.status(500).json({ error: "Scan failed", detail: err.message });
+	}
+});
+
+async function applyRenamePlan(plan, scope = "all") {
+	let ok = 0; let failed = 0; const errors = [];
+	const attempt = async (from, to) => {
+		try { await fsRename(from, to); ok++; }
+		catch (err) { failed++; errors.push({ from: basename(from), error: err.message }); }
+	};
+
+	if (scope === "all" || scope === "movies") {
+		for (const movie of plan.movies) {
+			if (movie.folderChanged) await attempt(movie.folderCurrent, movie.folderDesired);
+			for (const file of movie.files) {
+				if (!file.fileChanged) continue;
+				await attempt(join(movie.folderDesired, file.nameCurrent), join(movie.folderDesired, file.nameDesired));
+			}
+		}
+	}
+
+	if (scope === "all" || scope === "series") {
+		for (const show of plan.shows) {
+			for (const season of show.seasons) {
+				for (const ep of season.episodes) {
+					if (!ep.episodeChanged) continue;
+					await attempt(join(season.seasonFolderCurrent, ep.nameCurrent), join(season.seasonFolderCurrent, ep.nameDesired));
+				}
+				if (season.seasonFolderChanged) await attempt(season.seasonFolderCurrent, season.seasonFolderDesired);
+			}
+		}
+	}
+
+	return { ok, failed, errors };
+}
+
+app.post("/api/library/renames/apply", async (req, res) => {
+	try {
+		const { scope = "all", showFolder } = req.body ?? {};
+		const plan = await buildRenamePlan();
+		// When showFolder is provided, narrow the plan to that one show only
+		const effectivePlan = showFolder
+			? { ...plan, movies: [], shows: plan.shows.filter((s) => s.showFolder === showFolder) }
+			: plan;
+		const result = await applyRenamePlan(effectivePlan, showFolder ? "series" : scope);
+		await refreshPlexLibraries().catch(() => {});
+		res.json({ ...result, tmdbFailed: plan.stats.tmdbFailed });
+	} catch (err) {
+		res.status(500).json({ error: "Apply failed", detail: err.message });
+	}
+});
+
 readFile(SERVER_SETTINGS_PATH, "utf-8").then((d) => {
 	const s = JSON.parse(d);
 	if (typeof s.autoPauseSeeding === "boolean") autoPauseSeeding = s.autoPauseSeeding;
@@ -557,20 +1243,19 @@ setInterval(async () => {
 
 		for (const t of torrents) {
 			const prev = prevTorrentStates.get(t.hash);
-			if (prev && !DONE_STATES.has(prev) && DONE_STATES.has(t.state) && NTFY_URL) {
-				fetch(NTFY_URL, {
-					method: "POST",
-					headers: {
-						"Authorization": "Basic " + Buffer.from(`${NTFY_USER}:${NTFY_PASS}`).toString("base64"),
-						"Title": "Download complete",
-						"Tags": "white_check_mark",
-					},
-					body: t.name,
-				}).catch((e) => console.error("[ntfy] error:", e.message));
-				console.log(`[ntfy] notified: ${t.name}`);
+			const newlyDone = prev && !DONE_STATES.has(prev) && DONE_STATES.has(t.state);
+
+			if (newlyDone) {
+
+				if ((MOVIES_ROOTS.length || SERIES_ROOTS.length) && !processingTorrents.has(t.hash)) {
+					processingTorrents.add(t.hash);
+					processTorrent(t)
+						.catch((e) => console.error(`[process] error for "${t.name}": ${e.message}`))
+						.finally(() => processingTorrents.delete(t.hash));
+				}
 			}
 
-			if (autoPauseSeeding && SEEDING_STATES.has(t.state)) {
+			if (autoPauseSeeding && SEEDING_STATES.has(t.state) && !processingTorrents.has(t.hash)) {
 				await qbitFetch("/api/v2/torrents/pause", {
 					method: "POST",
 					headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -647,7 +1332,7 @@ app.delete("/api/quality-cache", async (_req, res) => {
 	}
 });
 
-const DEFAULT_QUALITY_SETTINGS = { resolution_threshold: 720, video_bitrate_1080p: 0, audio_bitrate_min: 0 };
+const DEFAULT_QUALITY_SETTINGS = { resolution_threshold: 720, resolution_max: 0, video_bitrate_1080p: 0, audio_bitrate_min: 0 };
 
 app.get("/api/quality-settings", async (_req, res) => {
 	try {
