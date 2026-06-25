@@ -874,6 +874,7 @@ async function processTorrent(torrent) {
 	// For movies: check for existing folder and quality-flag gate
 	let movieDestFolder = null;
 	let oldFilesToDelete = [];
+	let oldFileIssues = [];
 	if (type === "movies") {
 		const existingMovie = await findExistingMovieFolder(cleanMovieName ?? name);
 		if (existingMovie && existingMovie.root !== destRoot) {
@@ -894,6 +895,12 @@ async function processTorrent(torrent) {
 					const qReport = JSON.parse(await readFile(QUALITY_REPORT_PATH, "utf-8"));
 					const flaggedPaths = new Set((qReport.movies ?? []).map((m) => resolve(m.full_path)));
 					qualityFlagged = oldVideos.some((f) => flaggedPaths.has(resolve(f)));
+					if (qualityFlagged) {
+						for (const oldFile of oldVideos) {
+							const entry = (qReport.movies ?? []).find((m) => resolve(m.full_path) === resolve(oldFile));
+							if (entry) oldFileIssues.push(...entry.issues);
+						}
+					}
 				} catch { /* report missing — treat as clean */ }
 
 				if (!qualityFlagged) {
@@ -919,6 +926,7 @@ async function processTorrent(torrent) {
 
 	let addedVideoCount = 0;
 	let skippedVideoCount = 0;
+	let addedEpisodeTags = [];
 	try {
 		if (type === "series") {
 			for (const f of [...videoFiles, ...subtitleFiles]) {
@@ -946,7 +954,10 @@ async function processTorrent(torrent) {
 				await mkdir(targetDir, { recursive: true });
 				const movedPath = join(targetDir, basename(f));
 				await moveFile(f, movedPath);
-				if (MEDIA_EXTS.has(extname(f).toLowerCase())) addedVideoCount++;
+				if (MEDIA_EXTS.has(extname(f).toLowerCase())) {
+					addedVideoCount++;
+					if (epInfo) addedEpisodeTags.push(`S${String(epInfo.season).padStart(2, "0")}E${String(epInfo.episode).padStart(2, "0")}`);
+				}
 
 				// Rename to Plex format: Show - SXXEXX - Title.ext
 				const ext = extname(basename(f)).toLowerCase();
@@ -991,11 +1002,17 @@ async function processTorrent(torrent) {
 		} catch { /* quality report missing or malformed — leave as-is */ }
 	}
 
-	await qbitFetch("/api/v2/torrents/delete", {
-		method: "POST",
-		headers: { "Content-Type": "application/x-www-form-urlencoded" },
-		body: new URLSearchParams({ hashes: hash, deleteFiles: "true" }),
-	}).catch((err) => console.error(`[process] torrent delete failed: ${err.message}`));
+	// Don't delete a series torrent when nothing was moved — it may still be seeding intentionally.
+	// (For movies the early-return "Duplicate not replaced" path already handles this.)
+	if (type !== "series" || addedVideoCount > 0) {
+		await qbitFetch("/api/v2/torrents/delete", {
+			method: "POST",
+			headers: { "Content-Type": "application/x-www-form-urlencoded" },
+			body: new URLSearchParams({ hashes: hash, deleteFiles: "true" }),
+		}).catch((err) => console.error(`[process] torrent delete failed: ${err.message}`));
+	} else {
+		console.log(`[process] all episodes already in library — leaving torrent "${name}"`);
+	}
 
 	await refreshPlexLibraries().catch(() => {});
 	console.log(`[process] done: "${name}"`);
@@ -1011,14 +1028,18 @@ async function processTorrent(torrent) {
 			ntfyBody = [seriesLabel, `${skippedVideoCount} episode${skippedVideoCount !== 1 ? "s" : ""} already present`, crossDiskNote].filter(Boolean).join("\n");
 		} else {
 			ntfyTitle = addedVideoCount > 1 ? "Episodes added to library" : "Episode added to library";
-			const addedWord = `${addedVideoCount} episode${addedVideoCount !== 1 ? "s" : ""}${subLine}`;
+			const epListLine = addedEpisodeTags.length > 0 && addedEpisodeTags.length <= 6
+				? addedEpisodeTags.join(", ")
+				: `${addedVideoCount} episode${addedVideoCount !== 1 ? "s" : ""}${subLine}`;
 			const skipNote = skippedVideoCount > 0 ? `${skippedVideoCount} already present — skipped` : null;
-			ntfyBody = [seriesLabel, addedWord, skipNote, crossDiskNote, `→ ${shortPath(seriesShowRoot)}/`].filter(Boolean).join("\n");
+			ntfyBody = [seriesLabel, epListLine, skipNote, crossDiskNote, `→ ${shortPath(seriesShowRoot)}/`].filter(Boolean).join("\n");
 		}
 	} else {
-		ntfyTitle = "Movie added to library";
+		ntfyTitle = oldFilesToDelete.length > 0 ? "Movie replaced (quality upgrade)" : "Movie added to library";
+		const oldIssuesLine = oldFileIssues.length > 0 ? `Fixed: ${oldFileIssues.join(", ")}` : null;
 		ntfyBody = [
 			cleanMovieName ?? name,
+			oldIssuesLine,
 			`1 video file${subLine}`,
 			`→ ${shortPath(movieDestFolder)}/`,
 		].filter(Boolean).join("\n");
@@ -1320,6 +1341,7 @@ app.post("/api/qbit/auto-pause", (req, res) => {
 });
 
 let firstPoll = true;
+const SERVER_START_EPOCH = Math.floor(Date.now() / 1000);
 
 async function pollTorrents() {
 	try {
@@ -1330,8 +1352,11 @@ async function pollTorrents() {
 			const prev = prevTorrentStates.get(t.hash);
 			const newlyDone = prev && !DONE_STATES.has(prev) && DONE_STATES.has(t.state);
 			// On first poll after startup, catch torrents that finished while the server was down.
+			// Limit to torrents completed within the last 24h so long-running seeds are not re-processed.
 			// Guard: only process if content_path still exists (files not yet moved to library).
+			const recentlyCompleted = t.completion_on > 0 && t.completion_on > SERVER_START_EPOCH - 86400;
 			const missedWhileDown = firstPoll && !prev && DONE_STATES.has(t.state)
+				&& recentlyCompleted
 				&& await stat(t.content_path).then(() => true).catch(() => false);
 
 			if ((newlyDone || missedWhileDown) && (MOVIES_ROOTS.length || SERIES_ROOTS.length) && !processingTorrents.has(t.hash)) {
