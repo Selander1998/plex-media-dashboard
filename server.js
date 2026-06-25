@@ -822,6 +822,11 @@ async function processTorrent(torrent) {
 
 		const badFiles = [];
 		for (const f of videoFiles) {
+			const fileSize = await stat(f).then((s) => s.size).catch(() => 0);
+			if (fileSize < 50 * 1024 * 1024) {
+				console.log(`[process] Skipping quality check for small file (${Math.round(fileSize/1024/1024)}MB): ${basename(f)}`);
+				continue;
+			}
 			console.log(`[process] Quality checking: ${basename(f)}`);
 			const issues = await checkVideoQuality(f, qSettings);
 			if (issues.length > 0) badFiles.push({ file: basename(f), issues });
