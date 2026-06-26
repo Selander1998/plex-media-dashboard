@@ -236,6 +236,45 @@ export default function SettingsPanel({ settings, updateSetting, report, locale,
 				</div>
 			</div>
 
+			<div>
+				<p className="text-xs text-slate-500 mb-2">Temperature unit</p>
+				<div className="flex gap-1">
+					{[{ value: "c", label: "°C" }, { value: "f", label: "°F" }].map(({ value, label }) => (
+						<button
+							key={value}
+							onClick={() => updateSetting("tempUnit", value)}
+							className={`px-2.5 py-1 text-xs rounded cursor-pointer transition-colors ${
+								(settings.tempUnit ?? "c") === value
+									? "bg-indigo-600 text-white"
+									: "bg-surface2 text-slate-400 hover:text-slate-200"
+							}`}
+						>
+							{label}
+						</button>
+					))}
+				</div>
+			</div>
+
+			<div>
+				<p className="text-xs text-slate-500 mb-2">Weather location</p>
+				<div className="flex gap-1.5">
+					<input
+						type="text"
+						placeholder="Lat"
+						value={settings.weatherLat ?? ""}
+						onChange={(e) => updateSetting("weatherLat", e.target.value)}
+						className="w-full bg-surface2 border border-border rounded px-2 py-1 text-xs text-slate-200 outline-none focus:border-indigo-500"
+					/>
+					<input
+						type="text"
+						placeholder="Lon"
+						value={settings.weatherLon ?? ""}
+						onChange={(e) => updateSetting("weatherLon", e.target.value)}
+						className="w-full bg-surface2 border border-border rounded px-2 py-1 text-xs text-slate-200 outline-none focus:border-indigo-500"
+					/>
+				</div>
+			</div>
+
 			<div className="border-t border-border pt-3 flex flex-col gap-2">
 				<button
 					onClick={toggleAutoPause}

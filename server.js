@@ -256,6 +256,34 @@ app.get("/api/quality/mtime", async (_req, res) => {
 	}
 });
 
+// Weather — Open-Meteo, cached 30 min
+let weatherCache = { data: null, fetchedAt: 0, lat: null, lon: null };
+app.get("/api/weather", async (req, res) => {
+	const lat = parseFloat(req.query.lat);
+	const lon = parseFloat(req.query.lon);
+	if (!lat || !lon) return res.status(400).json({ error: "lat and lon required" });
+	const age = Date.now() - weatherCache.fetchedAt;
+	if (weatherCache.data && age < 30 * 60 * 1000 && weatherCache.lat === lat && weatherCache.lon === lon) {
+		return res.json(weatherCache.data);
+	}
+	try {
+		const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code,wind_speed_10m&wind_speed_unit=ms&timezone=Europe%2FStockholm`;
+		const r = await fetch(url);
+		if (!r.ok) throw new Error(`Open-Meteo ${r.status}`);
+		const body = await r.json();
+		const payload = {
+			temp: body.current.temperature_2m,
+			code: body.current.weather_code,
+			wind: body.current.wind_speed_10m,
+			time: body.current.time,
+		};
+		weatherCache = { data: payload, fetchedAt: Date.now(), lat, lon };
+		res.json(payload);
+	} catch (err) {
+		res.status(502).json({ error: err.message });
+	}
+});
+
 app.get("/api/report/mtime", async (_req, res) => {
 	try {
 		const s = await stat(REPORT_PATH);
@@ -640,17 +668,26 @@ function findDestRoot(savePath, roots) {
 	}) ?? null;
 }
 
+function toAscii(str) {
+	return String(str ?? "")
+		.replace(/[‘’‚‛′‵]/g, "'")
+		.replace(/[“”„‟″‶]/g, '"')
+		.replace(/[–—―]/g, " - ")
+		.replace(/…/g, "...")
+		.replace(/[^\x00-\xFF]/g, "");
+}
+
 function sendNtfy({ title, body, tags = "", priority = "default" }) {
 	if (!NTFY_URL) return;
 	fetch(NTFY_URL, {
 		method: "POST",
 		headers: {
 			"Authorization": "Basic " + Buffer.from(`${NTFY_USER}:${NTFY_PASS}`).toString("base64"),
-			"Title": title,
+			"Title": toAscii(title),
 			"Tags": tags,
 			"Priority": priority,
 		},
-		body,
+		body: toAscii(body),
 	}).catch((e) => console.error("[ntfy] error:", e.message));
 }
 

@@ -6,6 +6,21 @@ import { formatBytes } from "../utils/format.js";
 import SettingsPanel from "./SettingsPanel.jsx";
 import NotificationsPanel from "./NotificationsPanel.jsx";
 
+function weatherIcon(code) {
+	if (code === 0) return "☀️";
+	if (code === 1) return "🌤️";
+	if (code === 2) return "⛅";
+	if (code === 3) return "☁️";
+	if (code === 45 || code === 48) return "🌫️";
+	if (code >= 51 && code <= 57) return "🌦️";
+	if (code >= 61 && code <= 67) return "🌧️";
+	if (code >= 71 && code <= 77) return "❄️";
+	if (code >= 80 && code <= 82) return "🌦️";
+	if (code === 85 || code === 86) return "🌨️";
+	if (code >= 95) return "⛈️";
+	return "🌡️";
+}
+
 const TABS = [
 	{ id: "torrents", key: "tab_torrents" },
 	{ id: "watchlist", key: "tab_watchlist" },
@@ -55,6 +70,21 @@ export default function Header({
 		const id = setInterval(() => setNow(new Date()), 1000);
 		return () => clearInterval(id);
 	}, []);
+
+	const [weather, setWeather] = useState(null);
+	useEffect(() => {
+		const lat = settings.weatherLat;
+		const lon = settings.weatherLon;
+		if (!lat || !lon) return;
+		const load = () =>
+			fetch(`/api/weather?lat=${lat}&lon=${lon}`)
+				.then((r) => r.ok ? r.json() : null)
+				.then((d) => d && setWeather(d))
+				.catch(() => {});
+		load();
+		const id = setInterval(load, 15 * 60 * 1000);
+		return () => clearInterval(id);
+	}, [settings.weatherLat, settings.weatherLon]);
 	const settingsRef = useRef(null);
 	const notifsRef = useRef(null);
 
@@ -223,6 +253,19 @@ const totalSize = (report?.movies?.total_size ?? 0) + (report?.series?.total_siz
 							<path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
 						</svg>
 					</button>
+
+					{/* Weather */}
+					{weather && (() => {
+						const tempC = weather.temp;
+						const display = settings.tempUnit === "f"
+							? `${Math.round(tempC * 9 / 5 + 32)}°F`
+							: `${Math.round(tempC)}°C`;
+						return (
+							<span className="hidden sm:inline text-xs text-slate-400" title={`Wind ${weather.wind} m/s`}>
+								{weatherIcon(weather.code)} {display}
+							</span>
+						);
+					})()}
 
 					{/* Clock */}
 					<span className="hidden sm:inline text-xs text-slate-400 tabular-nums">

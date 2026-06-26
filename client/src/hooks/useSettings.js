@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-const DEFAULTS = { torrentRefreshInterval: 5000, clockFormat: "24h" };
+const DEFAULTS = { torrentRefreshInterval: 5000, clockFormat: "24h", weatherLat: "62.49", weatherLon: "17.33", tempUnit: "c" };
 
 export function useSettings() {
 	const [settings, setSettings] = useState(() => {
