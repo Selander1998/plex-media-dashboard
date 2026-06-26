@@ -943,14 +943,21 @@ async function processTorrent(torrent) {
 					? seriesShowRoot
 					: join(seriesShowRoot, seasonLabel);
 
-				// Skip if this S##E## already exists in the target directory
+				// Skip if this episode (or dual-episode) already exists in the target directory.
+				// For dual-episode files (E##E##), skip only if ALL episodes are already present.
 				const epInfo = parseEpisodeInfo(basename(f));
 				if (epInfo) {
-					const sTag = `s${String(epInfo.season).padStart(2, "0")}e${String(epInfo.episode).padStart(2, "0")}`;
+					const ep1Tag = `s${String(epInfo.season).padStart(2, "0")}e${String(epInfo.episode).padStart(2, "0")}`;
+					const ep2Tag = epInfo.episode2 != null
+						? `s${String(epInfo.season).padStart(2, "0")}e${String(epInfo.episode2).padStart(2, "0")}`
+						: null;
 					let dirEntries = [];
 					try { dirEntries = await readdir(targetDir); } catch { /* dir doesn't exist yet — no conflict */ }
-					if (dirEntries.some((n) => n.toLowerCase().includes(sTag))) {
-						console.log(`[process] skip existing S${String(epInfo.season).padStart(2, "0")}E${String(epInfo.episode).padStart(2, "0")}: ${basename(f)}`);
+					const ep1Exists = dirEntries.some((n) => n.toLowerCase().includes(ep1Tag));
+					const ep2Exists = ep2Tag == null || dirEntries.some((n) => n.toLowerCase().includes(ep2Tag));
+					if (ep1Exists && ep2Exists) {
+						const label = ep2Tag ? `S${String(epInfo.season).padStart(2,"0")}E${String(epInfo.episode).padStart(2,"0")}E${String(epInfo.episode2).padStart(2,"0")}` : `S${String(epInfo.season).padStart(2,"0")}E${String(epInfo.episode).padStart(2,"0")}`;
+						console.log(`[process] skip existing ${label}: ${basename(f)}`);
 						if (MEDIA_EXTS.has(extname(f).toLowerCase())) skippedVideoCount++;
 						continue;
 					}
@@ -961,15 +968,20 @@ async function processTorrent(torrent) {
 				await moveFile(f, movedPath);
 				if (MEDIA_EXTS.has(extname(f).toLowerCase())) {
 					addedVideoCount++;
-					if (epInfo) addedEpisodeTags.push(`S${String(epInfo.season).padStart(2, "0")}E${String(epInfo.episode).padStart(2, "0")}`);
+					if (epInfo) {
+						const epTag = epInfo.episode2 != null
+							? `S${String(epInfo.season).padStart(2,"0")}E${String(epInfo.episode).padStart(2,"0")}E${String(epInfo.episode2).padStart(2,"0")}`
+							: `S${String(epInfo.season).padStart(2,"0")}E${String(epInfo.episode).padStart(2,"0")}`;
+						addedEpisodeTags.push(epTag);
+					}
 				}
 
-				// Rename to Plex format: Show - SXXEXX - Title.ext
+				// Rename to Plex format: Show - SXXEXX[-EXX] - Title.ext
 				const ext = extname(basename(f)).toLowerCase();
 				if (MEDIA_EXTS.has(ext) || SUBTITLE_EXTS.has(ext)) {
 					if (epInfo) {
 						const epTitle = await fetchTmdbEpisodeTitle(seriesInfo.showName, epInfo.season, epInfo.episode);
-						const newFilename = buildEpisodeFilename(seriesInfo.showName, epInfo.season, epInfo.episode, epTitle) + ext;
+						const newFilename = buildEpisodeFilename(seriesInfo.showName, epInfo.season, epInfo.episode, epTitle, epInfo.episode2) + ext;
 						await fsRename(movedPath, join(targetDir, newFilename)).catch((err) =>
 							console.warn(`[process] episode rename failed: ${err.message}`)
 						);
@@ -1061,8 +1073,13 @@ function sanitizeFilename(str) {
 function pad2(n) { return String(n).padStart(2, "0"); }
 
 function parseEpisodeInfo(filename) {
-	const m = filename.match(/[Ss](\d+)[Ee](\d+)/);
-	return m ? { season: parseInt(m[1], 10), episode: parseInt(m[2], 10) } : null;
+	const m = filename.match(/[Ss](\d+)[Ee](\d+)(?:[Ee](\d+))?/);
+	if (!m) return null;
+	return {
+		season: parseInt(m[1], 10),
+		episode: parseInt(m[2], 10),
+		episode2: m[3] != null ? parseInt(m[3], 10) : null,
+	};
 }
 
 function normalizeSeasonFolderName(name) {
@@ -1117,8 +1134,9 @@ async function fetchTmdbEpisodeTitle(showName, season, episode) {
 	return _tmdbSeasonCache.get(seasonKey).get(episode) ?? null;
 }
 
-function buildEpisodeFilename(showName, season, episode, title) {
-	const base = `${showName} - S${pad2(season)}E${pad2(episode)}`;
+function buildEpisodeFilename(showName, season, episode, title, episode2 = null) {
+	const epPart = episode2 != null ? `S${pad2(season)}E${pad2(episode)}E${pad2(episode2)}` : `S${pad2(season)}E${pad2(episode)}`;
+	const base = `${showName} - ${epPart}`;
 	return title ? `${base} - ${sanitizeFilename(title)}` : base;
 }
 
