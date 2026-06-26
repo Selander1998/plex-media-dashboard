@@ -73,17 +73,59 @@ function groupByFolder(items) {
 	return Object.values(map).sort((a, b) => a.folder.localeCompare(b.folder));
 }
 
+function formatSize(bytes) {
+	if (!bytes) return "?";
+	if (bytes >= 1e9) return `${(bytes / 1e9).toFixed(1)} GB`;
+	if (bytes >= 1e6) return `${(bytes / 1e6).toFixed(0)} MB`;
+	return `${(bytes / 1e3).toFixed(0)} KB`;
+}
+
+function MultipleVideoRow({ files, deletedPaths, onDelete, pendingDelete }) {
+	const visible = files.filter((f) => !deletedPaths.has(f.full_path));
+	if (visible.length === 0) return null;
+	if (visible.length === 1) return (
+		<p className="text-slate-500 text-[11px] font-mono">{visible[0].name}</p>
+	);
+
+	async function handleKeep(keepPath) {
+		for (const f of visible) {
+			if (f.full_path !== keepPath) await onDelete(f.full_path, true);
+		}
+	}
+
+	return (
+		<div className="flex flex-col gap-1.5">
+			{visible.map((f) => (
+				<div key={f.full_path} className="flex items-center gap-2 rounded border border-border bg-surface2 px-3 py-2">
+					<div className="flex flex-col gap-0.5 flex-1 min-w-0">
+						<span className="text-slate-200 text-[12px] font-mono truncate">{f.name}</span>
+						<span className="text-slate-500 text-[11px]">{formatSize(f.size)}</span>
+					</div>
+					<button
+						onClick={() => handleKeep(f.full_path)}
+						disabled={pendingDelete != null}
+						className="shrink-0 text-[11px] px-2 py-0.5 rounded border border-green-800 bg-green-950/40 text-green-400 hover:bg-green-900/50 disabled:opacity-40 cursor-pointer transition-colors"
+					>
+						Keep
+					</button>
+				</div>
+			))}
+		</div>
+	);
+}
+
 export default function Warnings({ report, error, loading, qualityData, onToast }) {
 	const { t } = useLang();
 	const [pendingDelete, setPendingDelete] = useState(null);
 	const [deletedPaths, setDeletedPaths] = useState(new Set());
 
-	async function handleDeleteFile(full_path) {
-		if (pendingDelete !== full_path) {
+	async function handleDeleteFile(full_path, skipConfirm = false) {
+		if (!skipConfirm && pendingDelete !== full_path) {
 			setPendingDelete(full_path);
 			return;
 		}
-		setPendingDelete(null);
+		if (!skipConfirm) setPendingDelete(null);
+		else setPendingDelete(full_path);
 		try {
 			const res = await fetch("/api/quality-file", {
 				method: "DELETE",
@@ -95,6 +137,8 @@ export default function Warnings({ report, error, loading, qualityData, onToast 
 			onToast?.(t("toast_file_deleted", { name: full_path.split("/").pop() }));
 		} catch (err) {
 			onToast?.(err.message, true);
+		} finally {
+			setPendingDelete(null);
 		}
 	}
 
@@ -300,11 +344,12 @@ export default function Warnings({ report, error, loading, qualityData, onToast 
 					colorClass="text-yellow-500">
 					{movieMultiple.map((m, i) => (
 						<Row key={i} label={m.folder}>
-							<ul className="text-slate-400 text-[12px] list-disc list-inside">
-								{m.videos.map((v, j) => (
-									<li key={j}>{v}</li>
-								))}
-							</ul>
+							<MultipleVideoRow
+								files={m.files}
+								deletedPaths={deletedPaths}
+								onDelete={handleDeleteFile}
+								pendingDelete={pendingDelete}
+							/>
 						</Row>
 					))}
 				</Section>
@@ -334,20 +379,21 @@ export default function Warnings({ report, error, loading, qualityData, onToast 
 					colorClass="text-yellow-500">
 					{groupByShow(seriesMultiple).map(([show, episodes]) => (
 						<Row key={show} label={show}>
-							<ul className="text-slate-400 text-[12px] list-none flex flex-col gap-2 mt-1">
+							<ul className="flex flex-col gap-3 mt-1">
 								{episodes.map((m, i) => {
 									const epLabel =
 										typeof m.season === "number" && m.season > 0
 											? `S${String(m.season).padStart(2, "0")}E${String(m.episode).padStart(2, "0")}`
 											: t("abs_episode", { n: m.episode });
 									return (
-										<li key={i}>
+										<li key={i} className="flex flex-col gap-1.5">
 											<span className="text-slate-300 font-mono text-[11px]">{epLabel}</span>
-											<ul className="list-disc list-inside ml-3 mt-0.5">
-												{m.files.map((f, j) => (
-													<li key={j}>{f}</li>
-												))}
-											</ul>
+											<MultipleVideoRow
+												files={m.files}
+												deletedPaths={deletedPaths}
+												onDelete={handleDeleteFile}
+												pendingDelete={pendingDelete}
+											/>
 										</li>
 									);
 								})}

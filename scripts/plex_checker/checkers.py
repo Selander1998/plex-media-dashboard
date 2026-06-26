@@ -82,21 +82,23 @@ def check_movies(movies_roots, api_key, cache, blacklist):
 		title, year = parse_name_year(folder.name)
 
 		movie = search_movie(title, year, api_key, cache)
-		videos = []
+		video_files = []
 		extras = []
 		for f in folder.iterdir():
 			if f.is_file():
 				if is_video(f.name):
-					videos.append(f.name)
 					try:
-						total_size += f.stat().st_size
+						size = f.stat().st_size
+						total_size += size
 					except OSError:
-						pass
+						size = 0
+					video_files.append({"name": f.name, "full_path": str(f), "size": size})
 				elif f.suffix.lower() not in ALLOWED_EXTS:
 					extras.append(f.name)
 
-		if len(videos) > 1:
-			multiple_videos.append({"folder": folder.name, "videos": videos})
+		videos = [vf["name"] for vf in video_files]
+		if len(video_files) > 1:
+			multiple_videos.append({"folder": folder.name, "files": video_files})
 			print(f"  [WARN] {folder.name} — multiple video files: {', '.join(videos)}")
 		if extras:
 			unneeded_files.append({"folder": folder.name, "files": extras})
@@ -335,19 +337,27 @@ def check_series(series_roots, api_key, cache, blacklist, series_filter=None):
 
 			present = set()
 			ep_to_file = {}
+			ep_to_path = {}
 			for f in files:
 				eps = parse_episode_numbers(f.name)
 				if eps:
 					for ep in eps:
 						if ep in ep_to_file:
+							def _file_info(p):
+								try:
+									size = p.stat().st_size
+								except OSError:
+									size = 0
+								return {"name": p.name, "full_path": str(p), "size": size}
 							multiple_videos.append({
 								"show": title,
 								"season": sn,
 								"episode": ep,
-								"files": [ep_to_file[ep], f.name],
+								"files": [_file_info(ep_to_path[ep]), _file_info(f)],
 							})
 						else:
 							ep_to_file[ep] = f.name
+							ep_to_path[ep] = f
 					present.update(eps)
 				else:
 					unneeded_files.append({
@@ -406,6 +416,7 @@ def _check_absolute_show(title, tv_id, total_seasons, season_files, today, api_k
 	"""Handle episode-completeness check for absolute-numbered (anime-style) shows."""
 	all_present = set()
 	ep_to_file = {}
+	ep_to_path = {}
 
 	flat_eps = get_all_tv_episodes_flat(tv_id, total_seasons, api_key, cache)
 	flat_eps_data = {n: v["name"] for n, v in flat_eps.items()}
@@ -445,14 +456,21 @@ def _check_absolute_show(title, tv_id, total_seasons, season_files, today, api_k
 			if eps:
 				for ep in eps:
 					if ep in ep_to_file:
+						def _file_info_abs(p):
+							try:
+								size = p.stat().st_size
+							except OSError:
+								size = 0
+							return {"name": p.name, "full_path": str(p), "size": size}
 						multiple_videos.append({
 							"show": title,
 							"season": "absolute",
 							"episode": ep,
-							"files": [ep_to_file[ep], f.name],
+							"files": [_file_info_abs(ep_to_path[ep]), _file_info_abs(f)],
 						})
 					else:
 						ep_to_file[ep] = f.name
+						ep_to_path[ep] = f
 				all_present.update(eps)
 
 	expected_flat = {n for n, v in flat_eps.items() if v["air_date"] and v["air_date"] <= today}

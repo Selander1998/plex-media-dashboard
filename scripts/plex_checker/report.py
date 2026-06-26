@@ -47,13 +47,15 @@ def print_report(report_data):
 	if multiple_movies:
 		print(f"\n  Movies with multiple video files ({len(multiple_movies)}):")
 		for m in multiple_movies:
-			print(f"    • {m['folder']}: {', '.join(m['videos'])}")
+			names = [f["name"] if isinstance(f, dict) else f for f in m["files"]]
+			print(f"    • {m['folder']}: {', '.join(names)}")
 
 	if multiple_series:
 		print(f"\n  Series with multiple videos per episode ({len(multiple_series)}):")
 		for m in multiple_series:
 			season_label = f"S{m['season']:02d}" if isinstance(m['season'], int) and m['season'] > 0 else "absolute"
-			print(f"    • {m['show']} {season_label}E{m['episode']:02d}: {', '.join(m['files'])}")
+			names = [f["name"] if isinstance(f, dict) else f for f in m["files"]]
+			print(f"    • {m['show']} {season_label}E{m['episode']:02d}: {', '.join(names)}")
 
 	if unneeded_movies:
 		print(f"\n  Movies with unneeded files ({len(unneeded_movies)}):")
