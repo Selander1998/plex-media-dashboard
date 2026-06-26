@@ -1266,11 +1266,14 @@ async function buildRenamePlan() {
 					}
 					const epInfo = parseEpisodeInfo(epEntry.name);
 					if (!epInfo) {
-						warnings.unparseable.push({ show: showNameClean, season: seasonEntry.name, file: epEntry.name, fullPath: join(seasonFolderCurrent, epEntry.name) });
+						// Only warn about video files — subtitle files without episode info are harmless extras
+						if (MEDIA_EXTS.has(extname(epEntry.name).toLowerCase())) {
+							warnings.unparseable.push({ show: showNameClean, season: seasonEntry.name, file: epEntry.name, fullPath: join(seasonFolderCurrent, epEntry.name) });
+						}
 						continue;
 					}
 					const title = await fetchTmdbEpisodeTitle(showNameClean, epInfo.season, epInfo.episode);
-					const nameDesired = buildEpisodeFilename(showNameClean, epInfo.season, epInfo.episode, title) + ext;
+					const nameDesired = buildEpisodeFilename(showNameClean, epInfo.season, epInfo.episode, title, epInfo.episode2) + ext;
 					// episodeChanged = the file itself needs renaming (independent of season folder)
 					const epChanged = epEntry.name !== nameDesired;
 					episodes.push({ nameCurrent: epEntry.name, nameDesired, episodeChanged: epChanged, epInfo, title: title ?? null });

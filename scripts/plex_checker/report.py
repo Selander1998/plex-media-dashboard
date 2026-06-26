@@ -55,7 +55,9 @@ def print_report(report_data):
 		for m in multiple_series:
 			season_label = f"S{m['season']:02d}" if isinstance(m['season'], int) and m['season'] > 0 else "absolute"
 			names = [f["name"] if isinstance(f, dict) else f for f in m["files"]]
-			print(f"    • {m['show']} {season_label}E{m['episode']:02d}: {', '.join(names)}")
+			ep = m['episode']
+			ep_label = "-".join(f"E{e:02d}" for e in ep) if isinstance(ep, list) else f"E{ep:02d}"
+			print(f"    • {m['show']} {season_label}{ep_label}: {', '.join(names)}")
 
 	if unneeded_movies:
 		print(f"\n  Movies with unneeded files ({len(unneeded_movies)}):")
