@@ -71,9 +71,7 @@ export default function MissingSeries({ data, error, loading, newKeys = new Set(
 				<StatCard label={t("stat_missing_seasons")} value={seasonCount} colorClass="text-red-500" />
 				<StatCard label={t("stat_missing_episodes")} value={episodeCount} colorClass="text-yellow-500" />
 				<StatCard label={t("stat_affected_series")} value={showCount} colorClass="text-orange-500" />
-				{data.multiple_videos?.length > 0 && (
-					<StatCard label={t("stat_multiple_versions")} value={data.multiple_videos.length} colorClass="text-yellow-500" />
-				)}
+
 			</div>
 
 			<div className="flex gap-2.5 mb-5 flex-wrap items-center">

@@ -45,9 +45,6 @@ const collections = Object.keys(byCollection).sort();
 				{data.total != null && <StatCard label={t("stat_movies_on_disk")} value={data.total} colorClass="text-slate-200" />}
 				<StatCard label={t("stat_missing_movies")} value={visibleMissing.length} colorClass="text-red-500" />
 				<StatCard label={t("stat_affected_collections")} value={collections.length} />
-				{data.multiple_videos?.length > 0 && (
-					<StatCard label={t("stat_multiple_versions")} value={data.multiple_videos.length} colorClass="text-yellow-500" />
-				)}
 				{data.unneeded_files?.length > 0 && (
 					<StatCard label={t("stat_unneeded_files")} value={data.unneeded_files.length} colorClass="text-yellow-500" />
 				)}
@@ -89,25 +86,6 @@ const collections = Object.keys(byCollection).sort();
 				</div>
 			)}
 
-			{data.multiple_videos?.length > 0 && (
-				<>
-					<div className="text-[13px] font-semibold text-yellow-500 uppercase tracking-[0.6px] mb-3 mt-8">
-						{t("multiple_videos_title")}
-					</div>
-					<div className="bg-surface border border-border rounded-lg overflow-hidden divide-y divide-border">
-						{data.multiple_videos.map((m) => (
-							<div key={m.folder} className="px-4 py-3 flex flex-col gap-1">
-								<span className="text-slate-200 text-[13px] font-medium">{m.folder}</span>
-								<ul className="text-slate-400 text-[12px] list-disc list-inside">
-									{m.videos.map((v) => (
-										<li key={v}>{v}</li>
-									))}
-								</ul>
-							</div>
-						))}
-					</div>
-				</>
-			)}
 		</div>
 	);
 }
