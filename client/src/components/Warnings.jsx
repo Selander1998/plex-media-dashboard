@@ -80,16 +80,39 @@ function formatSize(bytes) {
 	return `${(bytes / 1e3).toFixed(0)} KB`;
 }
 
-function MultipleVideoRow({ files, deletedPaths, onDelete, pendingDelete }) {
+function MultipleVideoRow({ files, onToast }) {
+	const [deletedPaths, setDeletedPaths] = useState(new Set());
+	const [pending, setPending] = useState(false);
+
 	const visible = files.filter((f) => !deletedPaths.has(f.full_path));
 	if (visible.length === 0) return null;
 	if (visible.length === 1) return (
 		<p className="text-slate-500 text-[11px] font-mono">{visible[0].name}</p>
 	);
 
+	async function deleteFile(full_path) {
+		const res = await fetch("/api/library/file", {
+			method: "DELETE",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ fullPath: full_path }),
+		});
+		if (!res.ok) throw new Error((await res.json()).error ?? res.statusText);
+		setDeletedPaths((prev) => new Set(prev).add(full_path));
+	}
+
 	async function handleKeep(keepPath) {
-		for (const f of visible) {
-			if (f.full_path !== keepPath) await onDelete(f.full_path, true);
+		setPending(true);
+		try {
+			for (const f of visible) {
+				if (f.full_path !== keepPath) {
+					await deleteFile(f.full_path);
+					onToast?.(f.name.split("/").pop() + " deleted");
+				}
+			}
+		} catch (err) {
+			onToast?.(err.message, true);
+		} finally {
+			setPending(false);
 		}
 	}
 
@@ -103,10 +126,10 @@ function MultipleVideoRow({ files, deletedPaths, onDelete, pendingDelete }) {
 					</div>
 					<button
 						onClick={() => handleKeep(f.full_path)}
-						disabled={pendingDelete != null}
+						disabled={pending}
 						className="shrink-0 text-[11px] px-2 py-0.5 rounded border border-green-800 bg-green-950/40 text-green-400 hover:bg-green-900/50 disabled:opacity-40 cursor-pointer transition-colors"
 					>
-						Keep
+						{pending ? "…" : "Keep"}
 					</button>
 				</div>
 			))}
@@ -346,9 +369,7 @@ export default function Warnings({ report, error, loading, qualityData, onToast 
 						<Row key={i} label={m.folder}>
 							<MultipleVideoRow
 								files={m.files}
-								deletedPaths={deletedPaths}
-								onDelete={handleDeleteFile}
-								pendingDelete={pendingDelete}
+								onToast={onToast}
 							/>
 						</Row>
 					))}
