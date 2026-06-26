@@ -17,6 +17,28 @@ export function findTorrentsForTitle(title, torrents) {
 	});
 }
 
+function torrentPriority(torrent) {
+	const s = torrent.state;
+	if (s === "uploading" || s === "stalledUP") return 0;
+	if (s === "pausedUP" || s === "stoppedUP") return 1;
+	if (["downloading", "stalledDL", "metaDL", "queuedDL"].includes(s)) return 2;
+	if (s === "pausedDL" || s === "stoppedDL") return 3;
+	return 4;
+}
+
+export function bestTorrentBadge(torrents, t) {
+	if (!torrents || torrents.length === 0) return null;
+	const sorted = [...torrents].sort((a, b) => {
+		const pd = torrentPriority(a) - torrentPriority(b);
+		if (pd !== 0) return pd;
+		return b.progress - a.progress;
+	});
+	const best = sorted[0];
+	const { label, cls } = torrentBadgeProps(best, t);
+	const count = torrents.length;
+	return { label: count > 1 ? `${label} ×${count}` : label, cls };
+}
+
 export function torrentBadgeProps(torrent, t) {
 	const pct = torrent.progress === 1 ? 100 : Math.floor(torrent.progress * 100);
 	if (["downloading", "stalledDL", "metaDL", "queuedDL"].includes(torrent.state))

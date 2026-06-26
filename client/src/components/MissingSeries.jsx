@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import StatCard from "./StatCard.jsx";
-import { normalizeName, findTorrentsForTitle, torrentBadgeProps } from "../torrentUtils.js";
+import { normalizeName, findTorrentsForTitle, bestTorrentBadge } from "../torrentUtils.js";
 import { useLang } from "../LangContext.jsx";
 import { copyText } from "../utils/clipboard.js";
 
@@ -246,18 +246,17 @@ function ShowSection({
 							{t("badge_new")}
 						</span>
 					)}
-					{matchedTorrents.map((tor) => {
-						const { label, cls } = torrentBadgeProps(tor, t);
-						return (
+					{(() => {
+						const badge = bestTorrentBadge(matchedTorrents, t);
+						return badge ? (
 							<span
-								key={tor.hash}
 								onClick={(e) => e.stopPropagation()}
-								className={`px-1.5 py-0.5 rounded border text-[10px] font-medium ${cls}`}
+								className={`px-1.5 py-0.5 rounded border text-[10px] font-medium ${badge.cls}`}
 							>
-								{label}
+								{badge.label}
 							</span>
-						);
-					})}
+						) : null;
+					})()}
 					{seasonCount > 0 && (
 						<span className="text-red-500">
 							{seasonCount} {t(seasonCount === 1 ? "word_season" : "word_seasons")}
@@ -337,14 +336,14 @@ function ShowSection({
 													{t("badge_new")}
 												</span>
 											)}
-											{seasonTorrents.map((tor) => {
-												const { label, cls } = torrentBadgeProps(tor, t);
-												return (
-													<span key={tor.hash} className={`px-1.5 py-0.5 rounded border text-[10px] font-medium ${cls}`}>
-														{label}
+											{(() => {
+												const badge = bestTorrentBadge(seasonTorrents, t);
+												return badge ? (
+													<span className={`px-1.5 py-0.5 rounded border text-[10px] font-medium ${badge.cls}`}>
+														{badge.label}
 													</span>
-												);
-											})}
+												) : null;
+											})()}
 										</div>
 										{airDate && <span className="text-slate-500 text-[12px] shrink-0">{airDate}</span>}
 									</div>

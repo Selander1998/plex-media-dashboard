@@ -1,6 +1,6 @@
 import { useState } from "react";
 import StatCard from "./StatCard.jsx";
-import { findTorrentsForTitle, torrentBadgeProps } from "../torrentUtils.js";
+import { findTorrentsForTitle, bestTorrentBadge } from "../torrentUtils.js";
 import { useLang } from "../LangContext.jsx";
 import { copyText } from "../utils/clipboard.js";
 
@@ -132,14 +132,14 @@ function MovieRow({ movie, onBlacklist, matchedTorrents = [], isNew = false, onT
 						{t("badge_new")}
 					</span>
 				)}
-				{matchedTorrents.map((tor) => {
-					const { label, cls } = torrentBadgeProps(tor, t);
-					return (
-						<span key={tor.hash} className={`px-1.5 py-0.5 rounded border text-[10px] font-medium ${cls}`}>
-							{label}
+				{(() => {
+					const badge = bestTorrentBadge(matchedTorrents, t);
+					return badge ? (
+						<span className={`px-1.5 py-0.5 rounded border text-[10px] font-medium ${badge.cls}`}>
+							{badge.label}
 						</span>
-					);
-				})}
+					) : null;
+				})()}
 				<span className="text-[11px] text-slate-500 whitespace-nowrap">
 					{movie.year}
 					{movie.tmdb_id && (
