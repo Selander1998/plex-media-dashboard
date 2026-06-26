@@ -338,23 +338,29 @@ def check_series(series_roots, api_key, cache, blacklist, series_filter=None):
 			present = set()
 			ep_to_file = {}
 			ep_to_path = {}
+			seen_pairs = set()
 			for f in files:
 				eps = parse_episode_numbers(f.name)
 				if eps:
 					for ep in eps:
 						if ep in ep_to_file:
-							def _file_info(p):
-								try:
-									size = p.stat().st_size
-								except OSError:
-									size = 0
-								return {"name": p.name, "full_path": str(p), "size": size}
-							multiple_videos.append({
-								"show": title,
-								"season": sn,
-								"episode": ep,
-								"files": [_file_info(ep_to_path[ep]), _file_info(f)],
-							})
+							pair = frozenset([str(ep_to_path[ep]), str(f)])
+							if pair not in seen_pairs:
+								seen_pairs.add(pair)
+								def _file_info(p):
+									try:
+										size = p.stat().st_size
+									except OSError:
+										size = 0
+									return {"name": p.name, "full_path": str(p), "size": size}
+								eps_in_conflict = sorted(parse_episode_numbers(ep_to_path[ep].name) | parse_episode_numbers(f.name))
+								ep_label = eps_in_conflict[0] if len(eps_in_conflict) == 1 else eps_in_conflict
+								multiple_videos.append({
+									"show": title,
+									"season": sn,
+									"episode": ep_label,
+									"files": [_file_info(ep_to_path[ep]), _file_info(f)],
+								})
 						else:
 							ep_to_file[ep] = f.name
 							ep_to_path[ep] = f

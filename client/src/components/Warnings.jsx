@@ -402,10 +402,12 @@ export default function Warnings({ report, error, loading, qualityData, onToast 
 						<Row key={show} label={show}>
 							<ul className="flex flex-col gap-3 mt-1">
 								{episodes.map((m, i) => {
-									const epLabel =
-										typeof m.season === "number" && m.season > 0
-											? `S${String(m.season).padStart(2, "0")}E${String(m.episode).padStart(2, "0")}`
-											: t("abs_episode", { n: m.episode });
+									const pad = (n) => String(n).padStart(2, "0");
+									const epLabel = typeof m.season === "number" && m.season > 0
+										? Array.isArray(m.episode)
+											? `S${pad(m.season)}E${m.episode.map(pad).join("-E")}`
+											: `S${pad(m.season)}E${pad(m.episode)}`
+										: t("abs_episode", { n: Array.isArray(m.episode) ? m.episode[0] : m.episode });
 									return (
 										<li key={i} className="flex flex-col gap-1.5">
 											<span className="text-slate-300 font-mono text-[11px]">{epLabel}</span>
