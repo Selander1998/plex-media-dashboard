@@ -158,7 +158,7 @@ export default function SettingsPanel({ settings, updateSetting, report, locale,
 
 			<div>
 				<p className="text-xs text-slate-500 mb-2">{t("settings_max_resolution")}</p>
-				<div className="flex gap-1">
+				<div className="flex flex-wrap gap-1">
 					{[[0, t("settings_off")], [720, "720p"], [1080, "1080p"], [1440, "1440p"], [2160, "2160p"]].map(([val, label]) => (
 						<button
 							key={val}
@@ -258,7 +258,7 @@ export default function SettingsPanel({ settings, updateSetting, report, locale,
 						{t("export_stats_title")}
 					</button>
 				)}
-				<div className="flex items-center justify-between gap-2">
+				<div className="flex flex-col gap-0.5">
 					<button
 						onClick={handleClearCache}
 						disabled={cacheStatus === "loading"}
@@ -272,10 +272,10 @@ export default function SettingsPanel({ settings, updateSetting, report, locale,
 						{cacheStatus === "ok" ? t("toast_cache_cleared") : cacheStatus === "error" ? t("toast_cache_clear_failed") : t("clear_cache_title")}
 					</button>
 					{cacheStatus == null && ageLabel(cacheAge) && (
-						<span className={`text-[11px] ${ageLabel(cacheAge).cls}`}>{ageLabel(cacheAge).text}</span>
+						<span className={`text-[11px] pl-5 ${ageLabel(cacheAge).cls}`}>{ageLabel(cacheAge).text}</span>
 					)}
 				</div>
-				<div className="flex items-center justify-between gap-2">
+				<div className="flex flex-col gap-0.5">
 					<button
 						onClick={handleClearQualityCache}
 						disabled={qualityCacheStatus === "loading"}
@@ -289,7 +289,7 @@ export default function SettingsPanel({ settings, updateSetting, report, locale,
 						{qualityCacheStatus === "ok" ? t("toast_quality_cache_cleared") : qualityCacheStatus === "error" ? t("toast_quality_cache_clear_failed") : t("clear_quality_cache_title")}
 					</button>
 					{qualityCacheStatus == null && ageLabel(qualityCacheAge) && (
-						<span className={`text-[11px] ${ageLabel(qualityCacheAge).cls}`}>{ageLabel(qualityCacheAge).text}</span>
+						<span className={`text-[11px] pl-5 ${ageLabel(qualityCacheAge).cls}`}>{ageLabel(qualityCacheAge).text}</span>
 					)}
 				</div>
 			</div>
