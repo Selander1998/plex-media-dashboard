@@ -80,7 +80,7 @@ function formatSize(bytes) {
 	return `${(bytes / 1e3).toFixed(0)} KB`;
 }
 
-function MultipleVideoRow({ files, onToast }) {
+function MultipleVideoRow({ files, onToast, onReportRefresh }) {
 	const [deletedPaths, setDeletedPaths] = useState(new Set());
 	const [pending, setPending] = useState(false);
 
@@ -109,6 +109,7 @@ function MultipleVideoRow({ files, onToast }) {
 					onToast?.(f.name.split("/").pop() + " deleted");
 				}
 			}
+			onReportRefresh?.();
 		} catch (err) {
 			onToast?.(err.message, true);
 		} finally {
@@ -137,7 +138,7 @@ function MultipleVideoRow({ files, onToast }) {
 	);
 }
 
-export default function Warnings({ report, error, loading, qualityData, onToast }) {
+export default function Warnings({ report, error, loading, qualityData, onToast, onReportRefresh }) {
 	const { t } = useLang();
 	const [pendingDelete, setPendingDelete] = useState(null);
 	const [deletedPaths, setDeletedPaths] = useState(new Set());
@@ -370,6 +371,7 @@ export default function Warnings({ report, error, loading, qualityData, onToast 
 							<MultipleVideoRow
 								files={m.files}
 								onToast={onToast}
+								onReportRefresh={onReportRefresh}
 							/>
 						</Row>
 					))}

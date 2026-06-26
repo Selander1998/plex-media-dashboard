@@ -256,6 +256,15 @@ app.get("/api/quality/mtime", async (_req, res) => {
 	}
 });
 
+app.get("/api/report/mtime", async (_req, res) => {
+	try {
+		const s = await stat(REPORT_PATH);
+		res.json({ mtime: s.mtimeMs });
+	} catch {
+		res.json({ mtime: 0 });
+	}
+});
+
 app.get("/api/watchlist", async (req, res) => {
 	try {
 		const data = await readFile(WATCHLIST_PATH, "utf-8");
@@ -1019,6 +1028,39 @@ async function processTorrent(torrent) {
 		} catch { /* quality report missing or malformed — leave as-is */ }
 	}
 
+	// Patch report.json — remove newly-added items from missing lists
+	try {
+		const report = JSON.parse(await readFile(REPORT_PATH, "utf-8"));
+		let dirty = false;
+		if (type === "movies" && movieInfo && report.movies?.missing) {
+			const norm = (s) => s.toLowerCase().trim();
+			const before = report.movies.missing.length;
+			report.movies.missing = report.movies.missing.filter(
+				(m) => !(norm(m.title) === norm(movieInfo.title) && String(m.year) === String(movieInfo.year))
+			);
+			if (report.movies.missing.length !== before) dirty = true;
+		}
+		if (type === "series" && seriesInfo && addedEpisodeTags.length > 0 && report.series?.missing) {
+			const addedEps = new Set();
+			for (const tag of addedEpisodeTags) {
+				const m = tag.match(/S(\d+)E(\d+)(?:E(\d+))?/i);
+				if (!m) continue;
+				const sn = parseInt(m[1], 10);
+				addedEps.add(`${sn}:${parseInt(m[2], 10)}`);
+				if (m[3]) addedEps.add(`${sn}:${parseInt(m[3], 10)}`);
+			}
+			const showNorm = seriesInfo.showName.toLowerCase();
+			const before = report.series.missing.length;
+			report.series.missing = report.series.missing.filter((m) => {
+				if (m.type !== "episode") return true;
+				if (m.show.toLowerCase() !== showNorm) return true;
+				return !addedEps.has(`${m.season}:${m.episode}`);
+			});
+			if (report.series.missing.length !== before) dirty = true;
+		}
+		if (dirty) await writeFile(REPORT_PATH, JSON.stringify(report));
+	} catch { /* report missing or malformed — leave as-is */ }
+
 	// Don't delete a series torrent when nothing was moved — it may still be seeding intentionally.
 	// (For movies the early-return "Duplicate not replaced" path already handles this.)
 	if (type !== "series" || addedVideoCount > 0) {
@@ -1338,6 +1380,22 @@ app.delete("/api/library/file", async (req, res) => {
 		}
 		await unlink(abs);
 		await refreshPlexLibraries().catch(() => {});
+
+		// Patch report.json — remove the deleted file from multiple_videos entries
+		try {
+			const report = JSON.parse(await readFile(REPORT_PATH, "utf-8"));
+			let dirty = false;
+			for (const section of ["movies", "series"]) {
+				if (!report[section]?.multiple_videos) continue;
+				const before = report[section].multiple_videos.length;
+				report[section].multiple_videos = report[section].multiple_videos
+					.map((entry) => ({ ...entry, files: entry.files.filter((f) => resolve(f.full_path) !== abs) }))
+					.filter((entry) => entry.files.length > 1);
+				if (report[section].multiple_videos.length !== before) dirty = true;
+			}
+			if (dirty) await writeFile(REPORT_PATH, JSON.stringify(report));
+		} catch { /* report missing or malformed — leave as-is */ }
+
 		res.json({ ok: true });
 	} catch (err) {
 		res.status(500).json({ error: err.message });

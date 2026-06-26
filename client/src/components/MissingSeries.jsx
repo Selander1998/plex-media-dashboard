@@ -1,23 +1,15 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import StatCard from "./StatCard.jsx";
 import { normalizeName, findTorrentsForTitle, bestTorrentBadge } from "../torrentUtils.js";
 import { useLang } from "../LangContext.jsx";
 import { copyText } from "../utils/clipboard.js";
 
-export default function MissingSeries({ data, error, loading, newKeys = new Set(), onToast }) {
+export default function MissingSeries({ data, error, loading, newKeys = new Set(), torrents = [], onToast }) {
 	const { t } = useLang();
 	const [search, setSearch] = useState("");
 	const [typeFilter, setTypeFilter] = useState("all");
 	const [expanded, setExpanded] = useState(new Set());
 	const [blacklisted, setBlacklisted] = useState(new Set());
-	const [torrents, setTorrents] = useState([]);
-
-	useEffect(() => {
-		fetch("/api/torrents")
-			.then((r) => r.json())
-			.then((d) => setTorrents(Array.isArray(d) ? d : []))
-			.catch(() => {});
-	}, []);
 
 	if (loading) return <div className="text-center py-12 text-slate-400">{t("loading_report")}</div>;
 	if (error) return <div className="bg-[#2d1a1a] border border-[#5c2626] rounded-lg p-4 text-red-500">{error}</div>;

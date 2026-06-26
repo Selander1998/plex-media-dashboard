@@ -70,6 +70,23 @@ function AppContent() {
 		return () => clearInterval(id);
 	}, []);
 
+	const reportMtimeRef = useRef(0);
+	useEffect(() => {
+		const id = setInterval(async () => {
+			try {
+				const r = await fetch("/api/report/mtime");
+				const { mtime } = await r.json();
+				if (mtime && reportMtimeRef.current > 0 && mtime !== reportMtimeRef.current) {
+					reportMtimeRef.current = mtime;
+					loadData().catch(() => {});
+				} else if (mtime && reportMtimeRef.current === 0) {
+					reportMtimeRef.current = mtime;
+				}
+			} catch {}
+		}, 30_000);
+		return () => clearInterval(id);
+	}, []);
+
 	const [renameData, setRenameData] = useState(null);
 	const [renameLoading, setRenameLoading] = useState(false);
 	const renameLoadingRef = useRef(false);
@@ -223,10 +240,11 @@ function AppContent() {
 						error={reportError}
 						loading={!report && !reportError}
 						newKeys={newItems.series}
+						torrents={torrents}
 						onToast={pushToast}
 					/>
 				)}
-				{tab === "warnings" && <Warnings report={report} error={reportError} loading={!report && !reportError} qualityData={qualityData} onToast={pushToast} />}
+				{tab === "warnings" && <Warnings report={report} error={reportError} loading={!report && !reportError} qualityData={qualityData} onToast={pushToast} onReportRefresh={loadData} />}
 				{tab === "quality" && <QualityReport data={qualityData} error={qualityError} loading={qualityLoading} />}
 				{tab === "library" && <LibraryRename data={renameData} loading={renameLoading} onRefresh={scanRenameData} onDataChange={setRenameData} />}
 			</main>
