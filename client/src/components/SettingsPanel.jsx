@@ -217,6 +217,25 @@ export default function SettingsPanel({ settings, updateSetting, report, locale,
 				</div>
 			</div>
 
+			<div>
+				<p className="text-xs text-slate-500 mb-2">Clock format</p>
+				<div className="flex gap-1">
+					{[{ value: "24h", label: "24h" }, { value: "12h", label: "AM/PM" }].map(({ value, label }) => (
+						<button
+							key={value}
+							onClick={() => updateSetting("clockFormat", value)}
+							className={`px-2.5 py-1 text-xs rounded cursor-pointer transition-colors ${
+								(settings.clockFormat ?? "24h") === value
+									? "bg-indigo-600 text-white"
+									: "bg-surface2 text-slate-400 hover:text-slate-200"
+							}`}
+						>
+							{label}
+						</button>
+					))}
+				</div>
+			</div>
+
 			<div className="border-t border-border pt-3 flex flex-col gap-2">
 				<button
 					onClick={toggleAutoPause}

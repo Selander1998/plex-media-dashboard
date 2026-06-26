@@ -50,6 +50,11 @@ export default function Header({
 	const locale = lang === "sv" ? "sv-SE" : "en-US";
 	const [settingsOpen, setSettingsOpen] = useState(false);
 	const [notifsOpen, setNotifsOpen] = useState(false);
+	const [now, setNow] = useState(() => new Date());
+	useEffect(() => {
+		const id = setInterval(() => setNow(new Date()), 1000);
+		return () => clearInterval(id);
+	}, []);
 	const settingsRef = useRef(null);
 	const notifsRef = useRef(null);
 
@@ -218,6 +223,11 @@ const totalSize = (report?.movies?.total_size ?? 0) + (report?.series?.total_siz
 							<path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
 						</svg>
 					</button>
+
+					{/* Clock */}
+					<span className="hidden sm:inline text-xs text-slate-400 tabular-nums">
+						{now.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: settings.clockFormat === "12h" })}
+					</span>
 
 					{/* Notifications */}
 					<div ref={notifsRef} className="relative flex items-center">
