@@ -223,9 +223,9 @@ function ShowSection({
 				)}
 				<span
 					onClick={handleCopy}
-					className={`font-semibold text-sm flex-1 cursor-pointer select-none transition-colors ${copied ? "text-teal-400" : "text-slate-200"}`}
+					className={`font-semibold text-sm flex-1 select-none transition-colors ${copied ? "text-teal-400" : "text-slate-200"}`}
 				>
-					{show}{copied && <span className="ml-1.5 text-[11px] font-normal">✓</span>}
+					<span className="cursor-pointer">{show}</span>{copied && <span className="ml-1.5 text-[11px] font-normal">✓</span>}
 				</span>
 				<div className="flex items-center gap-3 text-xs shrink-0">
 					{hasNew && (

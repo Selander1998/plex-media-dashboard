@@ -154,9 +154,9 @@ function WatchlistCard({
 			<div className="flex items-start gap-2">
 				<span
 					onClick={handleCopy}
-					className={`text-sm font-semibold leading-snug flex-1 cursor-pointer select-none transition-colors ${copied ? "text-teal-400" : "text-slate-200"}`}
+					className={`text-sm font-semibold leading-snug flex-1 select-none transition-colors ${copied ? "text-teal-400" : "text-slate-200"}`}
 				>
-					{item.title}{copied && <span className="ml-1.5 text-[11px] font-normal">✓</span>}
+					<span className="cursor-pointer">{item.title}</span>{copied && <span className="ml-1.5 text-[11px] font-normal">✓</span>}
 				</span>
 				<div className="flex items-center gap-1 shrink-0">
 					{diskStatus === "incomplete" && missingItems.length > 0 && (

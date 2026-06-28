@@ -116,9 +116,9 @@ function MovieRow({ movie, onBlacklist, matchedTorrents = [], isNew = false, onT
 		<div className="px-3.5 py-2.5 flex items-center gap-2 group hover:bg-surface2">
 			<span
 				onClick={handleCopy}
-				className={`text-[13px] flex-1 min-w-0 leading-snug cursor-pointer select-none transition-colors ${copied ? "text-teal-400" : "text-slate-200"}`}
+				className={`text-[13px] flex-1 min-w-0 leading-snug select-none transition-colors ${copied ? "text-teal-400" : "text-slate-200"}`}
 			>
-				{movie.title}{copied && <span className="ml-1.5 text-[11px]">✓</span>}
+				<span className="cursor-pointer">{movie.title}</span>{copied && <span className="ml-1.5 text-[11px]">✓</span>}
 			</span>
 			<div className="flex items-center gap-1.5 shrink-0">
 				{isNew && (

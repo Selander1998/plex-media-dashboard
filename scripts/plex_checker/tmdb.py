@@ -22,14 +22,13 @@ def _cache_key(endpoint: str, params: dict[str, Any]) -> str:
 
 
 def tmdb_get(endpoint: str, params: dict[str, Any], api_key: str | None, cache: dict[str, Any], delay: float = 0.02) -> Any | None:
+	request_params = {**params, "api_key": api_key} if api_key else params
 	cache_key = _cache_key(endpoint, params)
 	if cache_key in cache:
 		return cache[cache_key]
-	if api_key and not tmdb_session.headers.get("Authorization"):
-		tmdb_session.headers["Authorization"] = f"Bearer {api_key}"
 	url = TMDB_BASE + endpoint
 	try:
-		r = tmdb_session.get(url, params=params, timeout=10)
+		r = tmdb_session.get(url, params=request_params, timeout=10)
 		r.raise_for_status()
 		data = r.json()
 		cache[cache_key] = data
