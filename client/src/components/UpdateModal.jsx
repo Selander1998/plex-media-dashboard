@@ -108,13 +108,29 @@ export default function UpdateModal({ updateStatus, updateLog, updateStats, noTm
 								: t("update_failed_during", { phase: t(PHASE_KEYS[PHASE_DONE.findIndex((fn) => !fn(updateStats))]) })}
 						</span>
 					)}
-					{(noTmdbCache || noQualityCache) && !updateStatus && (
-						<div className="ml-auto flex items-center gap-2">
-							{noTmdbCache && <span className="text-xs text-amber-400">{t("update_no_tmdb_cache_warn")}</span>}
-							{noQualityCache && <span className="text-xs text-amber-400">{t("update_no_quality_cache_warn")}</span>}
-						</div>
-					)}
 				</div>
+
+				{/* Cache warnings — shown only while update is running */}
+				{(noTmdbCache || noQualityCache) && !updateStatus && (
+					<div className="flex flex-col gap-1.5">
+						{noTmdbCache && (
+							<div className="flex items-center gap-2 px-3 py-2 bg-amber-500/8 border border-amber-800/50 rounded-lg">
+								<svg className="w-3.5 h-3.5 shrink-0 text-amber-500" viewBox="0 0 20 20" fill="currentColor">
+									<path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+								</svg>
+								<span className="text-xs text-amber-400">{t("update_no_tmdb_cache_warn")}</span>
+							</div>
+						)}
+						{noQualityCache && (
+							<div className="flex items-center gap-2 px-3 py-2 bg-amber-500/8 border border-amber-800/50 rounded-lg">
+								<svg className="w-3.5 h-3.5 shrink-0 text-amber-500" viewBox="0 0 20 20" fill="currentColor">
+									<path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+								</svg>
+								<span className="text-xs text-amber-400">{t("update_no_quality_cache_warn")}</span>
+							</div>
+						)}
+					</div>
+				)}
 
 				{/* Exception lines — only shown when Python tracebacks are present */}
 				{updateStatus === "error" && <UpdateErrorContext updateLog={updateLog} t={t} />}
@@ -122,14 +138,20 @@ export default function UpdateModal({ updateStatus, updateLog, updateStats, noTm
 				{/* Stats pills — always visible */}
 				<div className="flex gap-2 flex-wrap">
 					<span className="px-2.5 py-1 rounded-md bg-indigo-500/15 border border-indigo-800 text-indigo-300 text-xs font-medium flex items-center gap-1.5">
-						<span>
-							{updateStats.moviesCheckedP2 != null
-								? `${updateStats.moviesCheckedP2}/${updateStats.moviesP2} ②`
-								: updateStats.moviesChecked != null
-								? `${updateStats.moviesChecked}/${updateStats.movies}`
-								: (updateStats.movies ?? pending)}{" "}
-							{t("update_stat_movies")}
-						</span>
+						{updateStats.moviesCheckedP2 != null ? (
+							<span className="flex items-center gap-1.5">
+								<span>{updateStats.movies} {t("update_stat_movies")}</span>
+								<span className="text-indigo-500">·</span>
+								<span className="text-indigo-400 font-normal">{updateStats.moviesCheckedP2}/{updateStats.moviesP2} {t("update_stat_collections")}</span>
+							</span>
+						) : (
+							<span>
+								{updateStats.moviesChecked != null
+									? `${updateStats.moviesChecked}/${updateStats.movies}`
+									: (updateStats.movies ?? pending)}{" "}
+								{t("update_stat_movies")}
+							</span>
+						)}
 						{moviesElapsed != null && <span className="text-indigo-500">{fmtDuration(moviesElapsed)}</span>}
 						{updateStatus === "error" && <PillStatus done={updateStats.movies != null} />}
 					</span>
