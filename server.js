@@ -231,8 +231,8 @@ app.get("/api/disk-space", async (req, res) => {
 
 app.get("/api/report", async (req, res) => {
 	try {
-		const data = await readFile(REPORT_PATH, "utf-8");
-		res.json(JSON.parse(data));
+		const [data, s] = await Promise.all([readFile(REPORT_PATH, "utf-8"), stat(REPORT_PATH)]);
+		res.json({ ...JSON.parse(data), _mtime: s.mtimeMs });
 	} catch (err) {
 		res.status(500).json({ error: "Failed to read report", detail: err.message });
 	}

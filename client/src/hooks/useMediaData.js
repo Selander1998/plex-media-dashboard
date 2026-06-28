@@ -71,6 +71,8 @@ export function useMediaData() {
 		} else {
 			setWatchlistError(tRef.current("error_load_watchlist"));
 		}
+
+		return rData?._mtime ?? null;
 	}, []);
 
 	useEffect(() => {

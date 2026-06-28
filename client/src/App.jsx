@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import MissingMovies from "./components/MissingMovies.jsx";
 import MissingSeries from "./components/MissingSeries.jsx";
 import Torrents from "./components/Torrents.jsx";
@@ -78,7 +78,7 @@ function AppContent() {
 				const { mtime } = await r.json();
 				if (mtime && reportMtimeRef.current > 0 && mtime !== reportMtimeRef.current) {
 					reportMtimeRef.current = mtime;
-					loadData().catch(() => {});
+					syncedLoadData();
 				} else if (mtime && reportMtimeRef.current === 0) {
 					reportMtimeRef.current = mtime;
 				}
@@ -121,13 +121,19 @@ function AppContent() {
 	const { report, reportError, watchlist, watchlistError, blockedTitles, setBlockedTitles, newItems, loadData } =
 		useMediaData();
 
+	// Always sync reportMtimeRef after a load so the mtime poller doesn't re-trigger
+	const syncedLoadData = useCallback(
+		() => loadData().then((mtime) => { if (mtime) reportMtimeRef.current = mtime; }).catch(() => {}),
+		[loadData],
+	);
+
 	const { torrents, transfer, torrentCount, torrentLoading, torrentError, torrentStatsByDrive, fetchTorrents } =
 		useTorrents(settings.torrentRefreshInterval);
 
 	const { savePaths, tempPaths, savePathIdx, setSavePathIdx, diskSpace, totalDiskCapacity } = useSavePaths();
 
 	const { refreshing, updateStatus, updateLog, updateStats, noTmdbCache, noQualityCache, tick, timestamps, logRef, handleRefresh, handleAbort, handleClose } = useUpdate({
-		onSuccess: () => { loadData(); setQualityData(null); loadQualityData(); setRenameData(null); loadRenameData(); },
+		onSuccess: () => { syncedLoadData(); setQualityData(null); loadQualityData(); setRenameData(null); loadRenameData(); },
 		onError: (msg) => pushToast(msg, true),
 	});
 
@@ -143,12 +149,12 @@ function AppContent() {
 		const handleVisibility = () => {
 			if (document.visibilityState === "visible") {
 				fetchTorrents();
-				loadData().catch(() => {});
+				syncedLoadData();
 			}
 		};
 		document.addEventListener("visibilitychange", handleVisibility);
 		return () => document.removeEventListener("visibilitychange", handleVisibility);
-	}, [fetchTorrents, loadData]);
+	}, [fetchTorrents, syncedLoadData]);
 
 	return (
 		<div className="min-h-screen flex flex-col overflow-x-hidden">
@@ -218,6 +224,7 @@ function AppContent() {
 						report={report}
 						newTitles={newItems.watchlist}
 						blockedTitles={blockedTitles}
+						torrents={torrents}
 						onBlock={(title) => setBlockedTitles((prev) => new Set([...prev, title.toLowerCase()]))}
 						onToast={pushToast}
 					/>
@@ -244,7 +251,7 @@ function AppContent() {
 						onToast={pushToast}
 					/>
 				)}
-				{tab === "warnings" && <Warnings report={report} error={reportError} loading={!report && !reportError} qualityData={qualityData} onToast={pushToast} onReportRefresh={loadData} />}
+				{tab === "warnings" && <Warnings report={report} error={reportError} loading={!report && !reportError} qualityData={qualityData} onToast={pushToast} onReportRefresh={syncedLoadData} />}
 				{tab === "quality" && <QualityReport data={qualityData} error={qualityError} loading={qualityLoading} />}
 				{tab === "library" && <LibraryRename data={renameData} loading={renameLoading} onRefresh={scanRenameData} onDataChange={setRenameData} />}
 			</main>

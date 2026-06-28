@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import StatCard from "./StatCard.jsx";
-import { normalizeName, findTorrentsForTitle, torrentBadgeProps } from "../torrentUtils.js";
+import { normalizeName, findTorrentsForTitle, bestTorrentBadge } from "../torrentUtils.js";
 import { useLang } from "../LangContext.jsx";
 import { copyText } from "../utils/clipboard.js";
 
@@ -33,20 +33,13 @@ export default function Watchlist({
 	report,
 	newTitles = new Set(),
 	blockedTitles = new Set(),
+	torrents = [],
 	onBlock,
 	onToast,
 }) {
 	const { t } = useLang();
 	const [search, setSearch] = useState("");
 	const [typeFilter, setTypeFilter] = useState("all");
-	const [torrents, setTorrents] = useState([]);
-
-	useEffect(() => {
-		fetch("/api/torrents")
-			.then((r) => r.json())
-			.then((d) => setTorrents(Array.isArray(d) ? d : []))
-			.catch(() => {});
-	}, []);
 
 	if (loading)
 		return <div className="text-center py-12 text-slate-400">{t("loading_watchlist")}</div>;
@@ -200,14 +193,14 @@ function WatchlistCard({
 							{t("badge_incomplete")}
 						</span>
 					)}
-					{[...new Map(matchedTorrents.map(tor => {
-						const badge = torrentBadgeProps(tor, t);
-						return [badge.label, badge];
-					})).values()].map(({ label, cls }) => (
-						<span key={label} className={`px-1.5 py-0.5 rounded border text-[10px] font-medium ${cls}`}>
-							{label}
-						</span>
-					))}
+					{(() => {
+						const badge = bestTorrentBadge(matchedTorrents, t);
+						return badge ? (
+							<span className={`px-1.5 py-0.5 rounded border text-[10px] font-medium ${badge.cls}`}>
+								{badge.label}
+							</span>
+						) : null;
+					})()}
 					{isNew && (
 						<span className="px-1.5 py-0.5 rounded border text-[10px] font-medium text-teal-400 border-teal-800 bg-teal-950/40">
 							{t("badge_new")}
