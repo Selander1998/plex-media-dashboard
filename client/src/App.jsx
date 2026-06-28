@@ -10,6 +10,7 @@ import Header from "./components/Header.jsx";
 import UpdateModal from "./components/UpdateModal.jsx";
 import PasteModal from "./components/PasteModal.jsx";
 import ToastList from "./components/ToastList.jsx";
+import ErrorBoundary from "./components/ErrorBoundary.jsx";
 import { LangProvider } from "./LangContext.jsx";
 import { useToasts } from "./hooks/useToasts.js";
 import { useMediaData } from "./hooks/useMediaData.js";
@@ -205,55 +206,57 @@ function AppContent() {
 			/>
 
 			<main className="flex-1 p-3 sm:p-6 max-w-350 w-full mx-auto">
-				{tab === "torrents" && (
-					<Torrents
-						torrents={torrents}
-						transfer={transfer}
-						loading={torrentLoading}
-						error={torrentError}
-						onRefresh={fetchTorrents}
-						onToast={pushToast}
-						report={report}
-					/>
-				)}
-				{tab === "watchlist" && (
-					<Watchlist
-						data={watchlist}
-						error={watchlistError}
-						loading={!watchlist && !watchlistError}
-						report={report}
-						newTitles={newItems.watchlist}
-						blockedTitles={blockedTitles}
-						torrents={torrents}
-						onBlock={(title) => setBlockedTitles((prev) => new Set([...prev, title.toLowerCase()]))}
-						onToast={pushToast}
-					/>
-				)}
-				{tab === "missing_movies" && (
-					<MissingMovies
-						data={report?.movies}
-						error={reportError}
-						loading={!report && !reportError}
-						newKeys={newItems.movies}
-						torrents={torrents}
-						blockedTitles={blockedTitles}
-						onBlock={(title) => setBlockedTitles((prev) => new Set([...prev, title.toLowerCase()]))}
-						onToast={pushToast}
-					/>
-				)}
-				{tab === "missing_series" && (
-					<MissingSeries
-						data={report?.series}
-						error={reportError}
-						loading={!report && !reportError}
-						newKeys={newItems.series}
-						torrents={torrents}
-						onToast={pushToast}
-					/>
-				)}
-				{tab === "warnings" && <Warnings report={report} error={reportError} loading={!report && !reportError} qualityData={qualityData} onToast={pushToast} onReportRefresh={syncedLoadData} />}
-				{tab === "quality" && <QualityReport data={qualityData} error={qualityError} loading={qualityLoading} />}
-				{tab === "library" && <LibraryRename data={renameData} loading={renameLoading} onRefresh={scanRenameData} onDataChange={setRenameData} />}
+				<ErrorBoundary key={tab}>
+					{tab === "torrents" && (
+						<Torrents
+							torrents={torrents}
+							transfer={transfer}
+							loading={torrentLoading}
+							error={torrentError}
+							onRefresh={fetchTorrents}
+							onToast={pushToast}
+							report={report}
+						/>
+					)}
+					{tab === "watchlist" && (
+						<Watchlist
+							data={watchlist}
+							error={watchlistError}
+							loading={!watchlist && !watchlistError}
+							report={report}
+							newTitles={newItems.watchlist}
+							blockedTitles={blockedTitles}
+							torrents={torrents}
+							onBlock={(title) => setBlockedTitles((prev) => new Set([...prev, title.toLowerCase()]))}
+							onToast={pushToast}
+						/>
+					)}
+					{tab === "missing_movies" && (
+						<MissingMovies
+							data={report?.movies}
+							error={reportError}
+							loading={!report && !reportError}
+							newKeys={newItems.movies}
+							torrents={torrents}
+							blockedTitles={blockedTitles}
+							onBlock={(title) => setBlockedTitles((prev) => new Set([...prev, title.toLowerCase()]))}
+							onToast={pushToast}
+						/>
+					)}
+					{tab === "missing_series" && (
+						<MissingSeries
+							data={report?.series}
+							error={reportError}
+							loading={!report && !reportError}
+							newKeys={newItems.series}
+							torrents={torrents}
+							onToast={pushToast}
+						/>
+					)}
+					{tab === "warnings" && <Warnings report={report} error={reportError} loading={!report && !reportError} qualityData={qualityData} onToast={pushToast} onReportRefresh={syncedLoadData} />}
+					{tab === "quality" && <QualityReport data={qualityData} error={qualityError} loading={qualityLoading} />}
+					{tab === "library" && <LibraryRename data={renameData} loading={renameLoading} onRefresh={scanRenameData} onDataChange={setRenameData} />}
+				</ErrorBoundary>
 			</main>
 
 			{pasteMode && (
