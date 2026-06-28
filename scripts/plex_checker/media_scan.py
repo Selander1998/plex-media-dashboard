@@ -5,9 +5,12 @@ Used by checkers.py to resolve local folder names to titles/years and to
 detect video files, episode numbers, etc.
 """
 
+from __future__ import annotations
+
 import re
 import difflib
 from pathlib import Path
+from typing import Generator
 
 # ── Regex patterns ────────────────────────────────────────────────────────────
 
@@ -54,7 +57,7 @@ ANIME_SPECIAL_MAPPINGS = {
 
 # ── Parsing helpers ────────────────────────────────────────────────────────────
 
-def parse_name_year(name):
+def parse_name_year(name: str) -> tuple[str, int | None]:
 	"""Extract (title, year) from a folder name like 'Movie Title (2023)'."""
 	# Strip quality/source tags like [1080p], [WEBRip], [YTS.MX], etc.
 	name = re.sub(r'\[.*?\]', '', name).strip()
@@ -78,7 +81,7 @@ def parse_name_year(name):
 	return name.strip(), None
 
 
-def parse_season_number(name):
+def parse_season_number(name: str) -> int | None:
 	"""Return the season number embedded in a folder/filename, or None."""
 	m = SEASON_RE.search(name)
 	if not m:
@@ -86,7 +89,7 @@ def parse_season_number(name):
 	return int(next(g for g in m.groups() if g is not None))
 
 
-def parse_episode_numbers(name):
+def parse_episode_numbers(name: str) -> set[int]:
 	"""Return a set of episode numbers found in a filename."""
 	eps = set()
 
@@ -125,12 +128,12 @@ def parse_episode_numbers(name):
 	return eps
 
 
-def is_video(name):
+def is_video(name: str) -> bool:
 	"""Return True if the filename has a recognised video extension."""
 	return Path(name).suffix.lower() in VIDEO_EXTS
 
 
-def clean_ep_title(title, show_name=""):
+def clean_ep_title(title: str, show_name: str = "") -> str:
 	"""Strip show name, S01E01 markers, etc. for fuzzy title matching."""
 	title = re.sub(r'\[.*?\]', '', title).strip()
 	title = re.sub(r'^[^\w\s]+|[^\w\s]+$', '', title)
@@ -141,7 +144,7 @@ def clean_ep_title(title, show_name=""):
 	return title.strip().lower()
 
 
-def iter_dirs(roots):
+def iter_dirs(roots: list[str]) -> Generator[Path, None, None]:
 	"""Yield every immediate subdirectory found across all root paths."""
 	for root in roots:
 		p = Path(root)
@@ -153,7 +156,7 @@ def iter_dirs(roots):
 				yield d
 
 
-def get_match_score(s1, s2):
+def get_match_score(s1: str, s2: str) -> float:
 	"""Combined fuzzy + keyword-overlap similarity score between two strings."""
 	ratio = difflib.SequenceMatcher(None, s1, s2).ratio()
 	s1_clean = re.sub(r'[^\w\s]', ' ', s1.lower())

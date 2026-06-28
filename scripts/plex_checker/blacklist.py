@@ -31,17 +31,20 @@ Notes:
   - The "note" field is purely for your reference and is never read by the script.
 """
 
+from __future__ import annotations
+
 import os
 import re
 import json
 from pathlib import Path
+from typing import Any
 
 # Data files live in scripts/, one level above this package
 _SCRIPTS_DIR = Path(__file__).parent.parent
 BLACKLIST_FILE = str(_SCRIPTS_DIR / "plex_blacklist.json")
 
 
-def load_blacklist(path=BLACKLIST_FILE):
+def load_blacklist(path: str = BLACKLIST_FILE) -> dict[str, list]:
 	if os.path.exists(path):
 		try:
 			with open(path) as f:
@@ -56,12 +59,12 @@ def load_blacklist(path=BLACKLIST_FILE):
 	return {"episodes": [], "seasons": [], "shows": [], "movies": []}
 
 
-def _normalize(s):
+def _normalize(s: str | None) -> str:
 	"""Lowercase + collapse whitespace for loose name matching."""
 	return re.sub(r'\s+', ' ', (s or "").strip().lower())
 
 
-def is_episode_blacklisted(bl, show, season, episode):
+def is_episode_blacklisted(bl: dict[str, list], show: str, season: int, episode: int) -> bool:
 	"""
 	Return True if this episode should be suppressed.
 	'season' is 0 for absolute-numbered shows.
@@ -85,7 +88,7 @@ def is_episode_blacklisted(bl, show, season, episode):
 	return False
 
 
-def is_season_blacklisted(bl, show, season):
+def is_season_blacklisted(bl: dict[str, list], show: str, season: int) -> bool:
 	"""
 	Return True if this season should be suppressed — covers both the
 	'entire season absent' check and the per-episode gap check.
@@ -100,13 +103,13 @@ def is_season_blacklisted(bl, show, season):
 	return False
 
 
-def is_show_blacklisted(bl, show):
+def is_show_blacklisted(bl: dict[str, list], show: str) -> bool:
 	"""Return True if the entire show should be skipped."""
 	show_n = _normalize(show)
 	return any(_normalize(entry.get("show", "")) == show_n for entry in bl.get("shows", []))
 
 
-def is_movie_blacklisted(bl, title, collection=None):
+def is_movie_blacklisted(bl: dict[str, list], title: str, collection: str | None = None) -> bool:
 	"""Return True if a missing-movie entry should be suppressed."""
 	title_n = _normalize(title)
 	col_n = _normalize(collection or "")

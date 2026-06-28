@@ -1,9 +1,11 @@
 """TMDB API session and all search / fetch helpers."""
+from __future__ import annotations
 
 import json
 import time
 import difflib
 from datetime import date
+from typing import Any
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
@@ -15,11 +17,11 @@ _retries = Retry(total=5, backoff_factor=0.5, status_forcelist=[429, 500, 502, 5
 tmdb_session.mount("https://", HTTPAdapter(max_retries=_retries, pool_connections=10, pool_maxsize=10))
 
 
-def _cache_key(endpoint, params):
+def _cache_key(endpoint: str, params: dict[str, Any]) -> str:
 	return endpoint + json.dumps(params, sort_keys=True)
 
 
-def tmdb_get(endpoint, params, api_key, cache, delay=0.02):
+def tmdb_get(endpoint: str, params: dict[str, Any], api_key: str | None, cache: dict[str, Any], delay: float = 0.02) -> Any | None:
 	cache_key = _cache_key(endpoint, params)
 	if cache_key in cache:
 		return cache[cache_key]
@@ -39,7 +41,7 @@ def tmdb_get(endpoint, params, api_key, cache, delay=0.02):
 		return None
 
 
-def get_best_match(query, results):
+def get_best_match(query: str, results: list[dict[str, Any]]) -> dict[str, Any] | None:
 	if not results:
 		return None
 	best_result = results[0]
@@ -55,7 +57,7 @@ def get_best_match(query, results):
 	return best_result
 
 
-def search_movie(title, year, api_key, cache):
+def search_movie(title: str, year: int | str | None, api_key: str | None, cache: dict[str, Any]) -> dict[str, Any] | None:
 	data = tmdb_get("/search/movie", {"query": title, "year": year}, api_key, cache)
 	if data and data.get("results"):
 		return get_best_match(title, data["results"])
@@ -65,7 +67,7 @@ def search_movie(title, year, api_key, cache):
 	return None
 
 
-def get_movie_collection(movie_id, api_key, cache):
+def get_movie_collection(movie_id: int, api_key: str | None, cache: dict[str, Any]) -> tuple[list[dict[str, Any]], str | None]:
 	data = tmdb_get(f"/movie/{movie_id}", {}, api_key, cache)
 	if data and data.get("belongs_to_collection"):
 		col_id = data["belongs_to_collection"]["id"]
@@ -75,7 +77,7 @@ def get_movie_collection(movie_id, api_key, cache):
 	return [], None
 
 
-def search_tv(title, year, api_key, cache):
+def search_tv(title: str, year: int | str | None, api_key: str | None, cache: dict[str, Any]) -> dict[str, Any] | None:
 	data = tmdb_get("/search/tv", {"query": title, "first_air_date_year": year}, api_key, cache)
 	if data and data.get("results"):
 		return get_best_match(title, data["results"])
@@ -85,11 +87,11 @@ def search_tv(title, year, api_key, cache):
 	return None
 
 
-def get_tv_details(tv_id, api_key, cache):
+def get_tv_details(tv_id: int, api_key: str | None, cache: dict[str, Any]) -> dict[str, Any] | None:
 	return tmdb_get(f"/tv/{tv_id}", {}, api_key, cache)
 
 
-def get_tv_season(tv_id, season_number, api_key, cache):
+def get_tv_season(tv_id: int, season_number: int, api_key: str | None, cache: dict[str, Any]) -> dict[str, Any] | None:
 	data = tmdb_get(f"/tv/{tv_id}/season/{season_number}", {}, api_key, cache)
 	if data:
 		today = date.today().isoformat()
@@ -104,7 +106,7 @@ def get_tv_season(tv_id, season_number, api_key, cache):
 	return data
 
 
-def get_all_tv_episodes_flat(tv_id, total_seasons, api_key, cache):
+def get_all_tv_episodes_flat(tv_id: int, total_seasons: int, api_key: str | None, cache: dict[str, Any]) -> dict[int, dict[str, str]]:
 	"""Return {abs_ep_number: {"air_date": str, "name": str}} for all aired episodes."""
 	all_eps = {}
 	for sn in range(1, total_seasons + 1):

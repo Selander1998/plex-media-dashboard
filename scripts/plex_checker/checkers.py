@@ -8,11 +8,41 @@ Output philosophy: only print lines that require attention.
 Section headers and counts are always printed; per-item "Checking X" lines are not.
 """
 
+from __future__ import annotations
+
 import os
 import re
 import time
 from datetime import datetime
 from pathlib import Path
+from typing import Any, TypedDict
+
+
+class MovieResult(TypedDict):
+	total: int
+	total_size: int
+	titles_on_disk: list[dict[str, Any]]
+	missing: list[dict[str, Any]]
+	multiple_videos: list[dict[str, Any]]
+	unneeded_files: list[dict[str, Any]]
+	not_found_on_tmdb: list[dict[str, Any]]
+
+
+class SeriesResult(TypedDict):
+	total_shows: int
+	total_seasons: int
+	total_episodes: int
+	total_size: int
+	shows_on_disk: list[dict[str, Any]]
+	missing: list[dict[str, Any]]
+	multiple_videos: list[dict[str, Any]]
+	unneeded_files: list[dict[str, Any]]
+	not_found_on_tmdb: list[dict[str, Any]]
+
+
+class PlexSyncResult(TypedDict):
+	not_indexed: list[dict[str, str]]
+	stale: list
 
 from .blacklist import (
 	is_episode_blacklisted,
@@ -44,7 +74,7 @@ from .media_scan import (
 )
 
 
-def _file_info(p):
+def _file_info(p: Path) -> dict[str, Any]:
 	try:
 		size = p.stat().st_size
 	except OSError:
@@ -54,7 +84,7 @@ def _file_info(p):
 
 # ─── Movie checker ─────────────────────────────────────────────────────────────
 
-def check_movies(movies_roots, api_key, cache, blacklist):
+def check_movies(movies_roots: list[str], api_key: str | None, cache: dict[str, Any], blacklist: dict[str, list]) -> MovieResult:
 	print("\n" + "═" * 60)
 	print("  MOVIES — Collection completeness check")
 	print("═" * 60)
@@ -188,7 +218,7 @@ def check_movies(movies_roots, api_key, cache, blacklist):
 
 # ─── Series checker ────────────────────────────────────────────────────────────
 
-def check_series(series_roots, api_key, cache, blacklist, series_filter=None):
+def check_series(series_roots: list[str], api_key: str | None, cache: dict[str, Any], blacklist: dict[str, list], series_filter: str | None = None) -> SeriesResult:
 	print("\n" + "═" * 60)
 	print("  SERIES — Season & episode completeness check")
 	print("═" * 60)
@@ -355,7 +385,7 @@ def check_series(series_roots, api_key, cache, blacklist, series_filter=None):
 							pair = frozenset([str(ep_to_path[ep]), str(f)])
 							if pair not in seen_pairs:
 								seen_pairs.add(pair)
-eps_in_conflict = sorted(parse_episode_numbers(ep_to_path[ep].name) | parse_episode_numbers(f.name))
+								eps_in_conflict = sorted(parse_episode_numbers(ep_to_path[ep].name) | parse_episode_numbers(f.name))
 								ep_label = eps_in_conflict[0] if len(eps_in_conflict) == 1 else eps_in_conflict
 								multiple_videos.append({
 									"show": title,
@@ -420,7 +450,7 @@ eps_in_conflict = sorted(parse_episode_numbers(ep_to_path[ep].name) | parse_epis
 	}
 
 
-def _check_absolute_show(title, tv_id, total_seasons, season_files, today, api_key, cache, blacklist, missing, multiple_videos):
+def _check_absolute_show(title: str, tv_id: int, total_seasons: int, season_files: dict[int, list[Path]], today: str, api_key: str | None, cache: dict[str, Any], blacklist: dict[str, list], missing: list[dict[str, Any]], multiple_videos: list[dict[str, Any]]) -> None:
 	"""Handle episode-completeness check for absolute-numbered (anime-style) shows."""
 	all_present = set()
 	ep_to_file = {}
@@ -497,7 +527,7 @@ def _check_absolute_show(title, tv_id, total_seasons, season_files, today, api_k
 
 # ─── Plex sync check ──────────────────────────────────────────────────────────
 
-def _rel_path(fpath, roots):
+def _rel_path(fpath: str, roots: list[str]) -> str:
 	"""Return path relative to the first matching root, or the full path."""
 	for root in roots:
 		root = root.rstrip("/")
@@ -506,7 +536,7 @@ def _rel_path(fpath, roots):
 	return fpath
 
 
-def check_plex_sync(plex_url, plex_token, movies_roots, series_roots):
+def check_plex_sync(plex_url: str | None, plex_token: str | None, movies_roots: list[str], series_roots: list[str]) -> PlexSyncResult:
 	print("\n" + "═" * 60)
 	print("  PLEX SYNC — Cross-checking index against disk")
 	print("═" * 60)
