@@ -341,16 +341,14 @@ app.post("/api/blacklist", async (req, res) => {
 });
 
 const UPDATE_SCRIPT = join(__dirname, "scripts", "update.sh");
-let updateRunning = false;
-let updateChild = null;
-let updateAborted = false;
+const updateState = { running: false, child: null, aborted: false };
 
 app.post("/api/update", (req, res) => {
-	if (updateRunning) {
+	if (updateState.running) {
 		return res.status(409).json({ error: "Update already running" });
 	}
-	updateRunning = true;
-	updateAborted = false;
+	updateState.running = true;
+	updateState.aborted = false;
 
 	res.setHeader("Content-Type", "text/event-stream");
 	res.setHeader("Cache-Control", "no-cache");
@@ -358,14 +356,22 @@ app.post("/api/update", (req, res) => {
 	res.flushHeaders();
 	res.socket?.setNoDelay(true);
 
-	const send = (payload) => res.write(`data: ${JSON.stringify(payload)}\n\n`);
+	let clientConnected = true;
+	req.on("close", () => {
+		clientConnected = false;
+		updateState.running = false;
+		updateState.child = null;
+	});
+	const send = (payload) => {
+		if (clientConnected) res.write(`data: ${JSON.stringify(payload)}\n\n`);
+	};
 
 	const child = spawn("bash", [UPDATE_SCRIPT], {
 		timeout: 3_600_000,
 		env: { ...process.env, PYTHONUNBUFFERED: "1" },
 		detached: true,
 	});
-	updateChild = child;
+	updateState.child = child;
 	let tail = "";
 
 	const flush = (chunk) => {
@@ -382,11 +388,11 @@ app.post("/api/update", (req, res) => {
 	child.stderr.on("data", flush);
 
 	child.on("close", async (code) => {
-		updateRunning = false;
-		updateChild = null;
+		updateState.running = false;
+		updateState.child = null;
 		try {
 			if (tail.trim()) send({ line: tail.trim() });
-			if (updateAborted) {
+			if (updateState.aborted) {
 				send({ aborted: true });
 			} else if (code === 0) {
 				await refreshPlexLibraries();
@@ -403,8 +409,8 @@ app.post("/api/update", (req, res) => {
 	});
 
 	child.on("error", (err) => {
-		updateRunning = false;
-		updateChild = null;
+		updateState.running = false;
+		updateState.child = null;
 		console.error("[update] spawn error:", err.message);
 		send({ error: true });
 		res.end();
@@ -412,14 +418,14 @@ app.post("/api/update", (req, res) => {
 });
 
 app.post("/api/update/abort", (req, res) => {
-	if (!updateRunning || !updateChild) {
+	if (!updateState.running || !updateState.child) {
 		return res.status(409).json({ error: "No update running" });
 	}
-	updateAborted = true;
+	updateState.aborted = true;
 	try {
-		process.kill(-updateChild.pid, "SIGTERM");
+		process.kill(-updateState.child.pid, "SIGTERM");
 	} catch {
-		updateChild.kill("SIGTERM");
+		updateState.child.kill("SIGTERM");
 	}
 	res.json({ ok: true });
 });
@@ -516,18 +522,26 @@ app.post("/api/torrents/add", async (req, res) => {
 		let resolvedName = null;
 		if (hash && dn) {
 			resolvedName = parseTorrentName(dn);
-			setTimeout(async () => {
-				try {
-					await qbitFetch("/api/v2/torrents/rename", {
-						method: "POST",
-						headers: { "Content-Type": "application/x-www-form-urlencoded" },
-						body: new URLSearchParams({ hash, name: resolvedName }),
-					});
-					console.log(`[rename] "${dn}" → "${resolvedName}"`);
-				} catch (e) {
-					console.error(`[rename] auto-rename failed: ${e.message}`);
+			(async () => {
+				for (let i = 0; i < 12; i++) {
+					await new Promise((r) => setTimeout(r, 1000));
+					try {
+						const list = await qbitFetch(`/api/v2/torrents/info?hashes=${hash}`).then((r) => r.json());
+						if (!list?.length) continue;
+						await qbitFetch("/api/v2/torrents/rename", {
+							method: "POST",
+							headers: { "Content-Type": "application/x-www-form-urlencoded" },
+							body: new URLSearchParams({ hash, name: resolvedName }),
+						});
+						console.log(`[rename] "${dn}" → "${resolvedName}"`);
+						return;
+					} catch (e) {
+						console.error(`[rename] auto-rename failed: ${e.message}`);
+						return;
+					}
 				}
-			}, 2000);
+				console.warn(`[rename] torrent ${hash} not found after retries, skipping rename`);
+			})();
 		}
 
 		res.json({ ok: true, name: resolvedName });
@@ -800,7 +814,7 @@ async function checkVideoQuality(filePath, settings = {}) {
 		issues.push(`high_resolution:${video.width}x${height}`);
 
 	if (video_bitrate_1080p > 0 && height) {
-		const ratio = BITRATE_RATIOS.find(([h]) => height >= h)[1];
+		const ratio = (BITRATE_RATIOS.find(([h]) => height >= h) ?? BITRATE_RATIOS.at(-1))[1];
 		let threshold = Math.floor(video_bitrate_1080p * ratio);
 		if (EFFICIENT_CODECS.has(codec)) threshold = Math.floor(threshold / 2);
 		const vbr = Math.floor(parseInt(video.bit_rate || fmt.bit_rate || "0", 10) / 1000);
@@ -1175,8 +1189,8 @@ async function fetchTmdbShowId(showName) {
 	if (_tmdbShowIdCache.has(showName)) return _tmdbShowIdCache.get(showName);
 	try {
 		const res = await fetch(
-			`https://api.themoviedb.org/3/search/tv?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(showName)}`,
-			{ signal: AbortSignal.timeout(8_000) }
+			`https://api.themoviedb.org/3/search/tv?query=${encodeURIComponent(showName)}`,
+			{ headers: { Authorization: `Bearer ${TMDB_API_KEY}` }, signal: AbortSignal.timeout(8_000) }
 		);
 		const data = await res.json();
 		const results = data.results ?? [];
@@ -1197,8 +1211,8 @@ async function fetchTmdbEpisodeTitle(showName, season, episode) {
 	if (!_tmdbSeasonCache.has(seasonKey)) {
 		try {
 			const res = await fetch(
-				`https://api.themoviedb.org/3/tv/${showId}/season/${season}?api_key=${TMDB_API_KEY}`,
-				{ signal: AbortSignal.timeout(8_000) }
+				`https://api.themoviedb.org/3/tv/${showId}/season/${season}`,
+				{ headers: { Authorization: `Bearer ${TMDB_API_KEY}` }, signal: AbortSignal.timeout(8_000) }
 			);
 			const map = new Map();
 			if (res.ok) {

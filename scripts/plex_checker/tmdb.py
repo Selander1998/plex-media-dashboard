@@ -18,7 +18,8 @@ def tmdb_get(endpoint, params, api_key, cache, delay=0.02):
 	cache_key = endpoint + str(sorted(params.items()))
 	if cache_key in cache:
 		return cache[cache_key]
-	params["api_key"] = api_key
+	if api_key and not tmdb_session.headers.get("Authorization"):
+		tmdb_session.headers["Authorization"] = f"Bearer {api_key}"
 	url = TMDB_BASE + endpoint
 	try:
 		r = tmdb_session.get(url, params=params, timeout=10)
