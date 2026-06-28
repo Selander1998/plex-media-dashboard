@@ -3,6 +3,7 @@ import StatCard from "./StatCard.jsx";
 import { normalizeName, findTorrentsForTitle, bestTorrentBadge } from "../torrentUtils.js";
 import { useLang } from "../LangContext.jsx";
 import { copyText } from "../utils/clipboard.js";
+import { useBlacklist } from "../hooks/useBlacklist.js";
 
 export default function MissingSeries({ data, error, loading, newKeys = new Set(), torrents = [], onToast }) {
 	const { t } = useLang();
@@ -188,19 +189,13 @@ function ShowSection({
 	const tmdbId = items.find((m) => m.tmdb_id)?.tmdb_id;
 	const hasNew = items.some((m) => newKeys.has(seriesKey(m)));
 
+	const { blockTitle } = useBlacklist({ onBlock: onBlacklist, onToast });
+
 	async function handleBlacklist(e) {
 		e.stopPropagation();
 		setPending(true);
 		try {
-			const res = await fetch("/api/blacklist", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ title: show }),
-			});
-			if (res.ok) {
-				onBlacklist(show);
-				onToast?.(t("toast_blacklisted", { title: show }));
-			}
+			await blockTitle(show);
 		} finally {
 			setPending(false);
 		}

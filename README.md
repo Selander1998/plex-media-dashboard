@@ -19,6 +19,7 @@ This is a self-hosted dashboard for managing a personal media library. Tracks mo
 - **Warnings** — flags duplicate video files, unneeded extra files, and content not yet indexed by Plex
 - **Quality** — scans your library for files below configurable resolution, video bitrate, and audio bitrate thresholds using `ffprobe`
 - **Stats card** — exportable PNG with collection stats (counts, storage, binge time, and more)
+- **Weather & clock** — live local time and current temperature displayed in the header; configure location (lat/lon), clock format (12h/24h), and temperature unit (°C/°F) in the Settings panel
 - **Localised UI** — full i18n with a language toggle in the Settings panel; add new languages by dropping a locale JSON file into `client/src/locales/`
 - **Refresh button** — triggers `update.sh` from the UI and reloads the report
 
@@ -71,6 +72,8 @@ cp .env.example .env
 | `NTFY_URL`           | ntfy topic URL for push notifications on torrent completion, e.g. `https://ntfy.example.com/torrents` (optional) |
 | `NTFY_USER`          | ntfy username (optional)                                                 |
 | `NTFY_PASS`          | ntfy password (optional)                                                 |
+| `WEATHER_LAT`        | Latitude for weather display in the header (optional)                    |
+| `WEATHER_LON`        | Longitude for weather display in the header (optional)                   |
 
 > **Exposing the dashboard outside your LAN?** Set `DASHBOARD_TOKEN` to a strong password. The browser will prompt once per session and cache the credentials automatically — no login page required.
 

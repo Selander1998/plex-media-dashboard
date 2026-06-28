@@ -26,5 +26,8 @@ def load_cache(path=CACHE_FILE):
 
 
 def save_cache(cache, path=CACHE_FILE):
-	with open(path, "w") as f:
-		json.dump(cache, f, indent=2)
+	try:
+		with open(path, "w") as f:
+			json.dump(cache, f, indent=2)
+	except OSError as e:
+		print(f"  [WARN] Could not save cache to {path}: {e}")

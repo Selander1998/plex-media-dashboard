@@ -1,12 +1,9 @@
 import { useState } from "react";
 import { useLang } from "../LangContext.jsx";
+import { countWarnings, issueType } from "../utils/warningUtils.js";
+import { Section, Row } from "./ui/Section.jsx";
 
 const STRUCTURAL_TYPES = new Set(["corrupt_or_unreadable", "no_video_stream", "no_audio_stream"]);
-
-function issueType(issue) {
-	const colon = issue.indexOf(":");
-	return colon === -1 ? issue : issue.slice(0, colon);
-}
 
 function structuralLabel(issue, t) {
 	const type = issueType(issue);
@@ -186,20 +183,7 @@ export default function Warnings({ report, error, loading, qualityData, onToast,
 	const { corruptMovies, corruptSeries, badCodecMovies, badCodecSeries } =
 		qualityData ? extractQualityWarnings(qualityData) : { corruptMovies: [], corruptSeries: [], badCodecMovies: [], badCodecSeries: [] };
 
-	const total =
-		movieMultiple.length +
-		movieUnneeded.length +
-		movieNotOnTmdb.length +
-		seriesMultiple.length +
-		seriesUnneeded.length +
-		seriesNotOnTmdb.length +
-		notIndexed.length +
-		corruptMovies.length +
-		corruptSeries.length +
-		badCodecMovies.length +
-		badCodecSeries.length;
-
-	if (total === 0) {
+	if (countWarnings(report, qualityData) === 0) {
 		return <div className="text-center py-12 text-slate-400">{t("no_warnings")}</div>;
 	}
 
@@ -415,9 +399,8 @@ export default function Warnings({ report, error, loading, qualityData, onToast,
 											<span className="text-slate-300 font-mono text-[11px]">{epLabel}</span>
 											<MultipleVideoRow
 												files={m.files}
-												deletedPaths={deletedPaths}
-												onDelete={handleDeleteFile}
-												pendingDelete={pendingDelete}
+												onToast={onToast}
+												onReportRefresh={onReportRefresh}
 											/>
 										</li>
 									);
@@ -470,25 +453,3 @@ function DeleteButton({ full_path, pending, onDelete }) {
 	);
 }
 
-function Section({ title, count, colorClass, children }) {
-	return (
-		<div>
-			<div className="flex items-center gap-2 mb-2">
-				<h2 className="text-sm font-semibold text-slate-300">{title}</h2>
-				<span className={`text-xs font-medium ${colorClass}`}>{count}</span>
-			</div>
-			<div className="bg-surface border border-border rounded-lg overflow-hidden divide-y divide-border">
-				{children}
-			</div>
-		</div>
-	);
-}
-
-function Row({ label, children }) {
-	return (
-		<div className="px-4 py-3 flex flex-col gap-1">
-			<span className="text-slate-200 text-[13px] font-medium">{label}</span>
-			{children}
-		</div>
-	);
-}

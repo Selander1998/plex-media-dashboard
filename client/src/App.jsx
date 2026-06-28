@@ -197,10 +197,7 @@ function AppContent() {
 				onToast={pushToast}
 				settings={settings}
 				updateSetting={updateSetting}
-				notifHistory={notifHistory}
-				notifUnread={notifUnread}
-				onNotifRead={onNotifRead}
-				onNotifClear={onNotifClear}
+				notif={{ history: notifHistory, unread: notifUnread, onRead: onNotifRead, onClear: onNotifClear }}
 				qualityData={qualityData}
 				renameData={renameData}
 			/>

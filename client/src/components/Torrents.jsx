@@ -1,18 +1,11 @@
 import { useState, useEffect, useRef, useMemo, Fragment } from "react";
 import StatCard from "./StatCard.jsx";
 import { useLang } from "../LangContext.jsx";
-
-function formatBytes(bytes) {
-	if (bytes === 0) return "0 B";
-	const k = 1024;
-	const sizes = ["B", "KB", "MB", "GB", "TB"];
-	const i = Math.floor(Math.log(bytes) / Math.log(k));
-	return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`;
-}
+import { formatBytes } from "../utils/format.js";
 
 function formatSpeed(bytesPerSec) {
 	if (bytesPerSec < 1024) return `${bytesPerSec} B/s`;
-	return `${formatBytes(bytesPerSec)}/s`;
+	return `${formatBytes(bytesPerSec, "0 B")}/s`;
 }
 
 function formatKbps(kbps, tr) {
@@ -21,16 +14,13 @@ function formatKbps(kbps, tr) {
 	return `${(kbps / 1024).toFixed(1)} MB/s`;
 }
 
-function formatAddedDate(ts, tr, lang) {
+function formatAddedDate(ts, tr, locale) {
 	const d = new Date(ts * 1000);
 	const diffDays = Math.floor((Date.now() - d) / 86400000);
 	if (diffDays === 0) return tr("today");
 	if (diffDays === 1) return tr("yesterday");
 	if (diffDays < 7) return tr("days_ago", { n: diffDays });
-	return d.toLocaleDateString(lang === "sv" ? "sv-SE" : "en-US", {
-		day: "numeric",
-		month: "short",
-	});
+	return d.toLocaleDateString(locale, { day: "numeric", month: "short" });
 }
 
 const dotForState = {
@@ -94,7 +84,7 @@ function SortIcon({ active, dir }) {
 	);
 }
 
-function SpeedSlider({ label, limitBytes, endpoint, colorClass, accentClass, currentSpeed, tr }) {
+function SpeedSlider({ label, limitBytes, endpoint, colorClass, accentClass, currentSpeed, tr, onToast }) {
 	const MAX_KBPS = 102400;
 	const [kbps, setKbps] = useState(0);
 	const initialized = useRef(false);
@@ -110,13 +100,19 @@ function SpeedSlider({ label, limitBytes, endpoint, colorClass, accentClass, cur
 		setKbps(Number(e.target.value));
 	}
 
-	function handleRelease(e) {
+	async function handleRelease(e) {
 		const v = Number(e.target.value);
-		fetch(endpoint, {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ limit: v * 1024 }),
-		});
+		try {
+			const res = await fetch(endpoint, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ limit: v * 1024 }),
+			});
+			if (!res.ok) throw new Error();
+		} catch {
+			setKbps(Math.round((limitBytes || 0) / 1024));
+			onToast?.(tr("action_failed"), true);
+		}
 	}
 
 	return (
@@ -172,8 +168,7 @@ function parseTorrentName(name) {
 }
 
 export default function Torrents({ torrents, transfer, loading, error, onRefresh, onToast, report }) {
-	const { t: tr, lang } = useLang();
-	const locale = lang === "sv" ? "sv-SE" : "en-US";
+	const { t: tr, locale } = useLang();
 
 	const [filter, setFilter] = useState(() => localStorage.getItem("torrent_filter") || "all");
 	const [sortKey, setSortKey] = useState("progress");
@@ -414,6 +409,7 @@ async function handleAction(action, hash) {
 						accentClass="accent-blue-500"
 						currentSpeed={transfer.dl_info_speed ?? totalDl}
 						tr={tr}
+						onToast={onToast}
 					/>
 					<SpeedSlider
 						label="↑"
@@ -423,6 +419,7 @@ async function handleAction(action, hash) {
 						accentClass="accent-green-500"
 						currentSpeed={transfer.up_info_speed ?? totalUl}
 						tr={tr}
+						onToast={onToast}
 					/>
 				</div>
 			)}
@@ -517,7 +514,7 @@ async function handleAction(action, hash) {
 														</div>
 													</td>
 													<td className="px-3 py-2 text-slate-400 text-[13px] hidden sm:table-cell">
-														{formatBytes(totalSize)}
+														{formatBytes(totalSize, "0 B")}
 													</td>
 													<td className="px-3 py-2 text-[13px] min-w-20 sm:min-w-25">
 														<div className="flex items-center gap-2">
@@ -595,7 +592,7 @@ async function handleAction(action, hash) {
 																)}
 															</td>
 															<td className="px-3 py-2.5 text-slate-400 text-[13px] group-hover:bg-surface2 hidden sm:table-cell">
-																{formatBytes(t.size)}
+																{formatBytes(t.size, "0 B")}
 															</td>
 															<td className="px-3 py-2.5 text-[13px] min-w-20 sm:min-w-25 group-hover:bg-surface2">
 																<div className="flex items-center gap-2">
@@ -632,7 +629,7 @@ async function handleAction(action, hash) {
 																{done ? "—" : formatEta(t.eta)}
 															</td>
 															<td className="px-3 py-2.5 text-slate-400 text-[13px] group-hover:bg-surface2 whitespace-nowrap hidden lg:table-cell">
-																{t.added_on ? formatAddedDate(t.added_on, tr, lang) : "—"}
+																{t.added_on ? formatAddedDate(t.added_on, tr, locale) : "—"}
 															</td>
 															<td className="px-3 py-2.5 text-slate-500 text-[12px] group-hover:bg-surface2 whitespace-nowrap hidden lg:table-cell">
 																{t.save_path

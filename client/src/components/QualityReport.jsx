@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useLang } from "../LangContext.jsx";
+import { issueType } from "../utils/warningUtils.js";
+import { Section } from "./ui/Section.jsx";
 
 const FILTERS = [
 	{ id: "all", labelKey: "quality_filter_all" },
@@ -20,11 +22,6 @@ function toMetricItems(items) {
 	return items
 		.map((item) => ({ ...item, issues: item.issues.filter(isMetricIssue) }))
 		.filter((item) => item.issues.length > 0);
-}
-
-function issueType(issue) {
-	const colon = issue.indexOf(":");
-	return colon === -1 ? issue : issue.slice(0, colon);
 }
 
 function parseIssue(issue, t) {
@@ -86,23 +83,9 @@ function groupByFolder(items, sortByQuality = false) {
 	return entries;
 }
 
-function Section({ title, count, children }) {
-	return (
-		<div>
-			<div className="flex items-center gap-2 mb-2">
-				<h2 className="text-sm font-semibold text-slate-300">{title}</h2>
-				<span className="text-xs font-medium text-amber-500">{count}</span>
-			</div>
-			<div className="bg-surface border border-border rounded-lg overflow-hidden divide-y divide-border">
-				{children}
-			</div>
-		</div>
-	);
-}
 
 export default function QualityReport({ data, error, loading }) {
-	const { t, lang } = useLang();
-	const locale = lang === "sv" ? "sv-SE" : "en-US";
+	const { t, locale } = useLang();
 	const [filter, setFilter] = useState("all");
 	const [sortDir, setSortDir] = useState("worst");
 

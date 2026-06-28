@@ -218,7 +218,7 @@ export default function SettingsPanel({ settings, updateSetting, report, locale,
 			</div>
 
 			<div>
-				<p className="text-xs text-slate-500 mb-2">Clock format</p>
+				<p className="text-xs text-slate-500 mb-2">{t("settings_clock_format")}</p>
 				<div className="flex gap-1">
 					{[{ value: "24h", label: "24h" }, { value: "12h", label: "AM/PM" }].map(({ value, label }) => (
 						<button
@@ -237,7 +237,7 @@ export default function SettingsPanel({ settings, updateSetting, report, locale,
 			</div>
 
 			<div>
-				<p className="text-xs text-slate-500 mb-2">Temperature unit</p>
+				<p className="text-xs text-slate-500 mb-2">{t("settings_temp_unit")}</p>
 				<div className="flex gap-1">
 					{[{ value: "c", label: "°C" }, { value: "f", label: "°F" }].map(({ value, label }) => (
 						<button
@@ -256,7 +256,7 @@ export default function SettingsPanel({ settings, updateSetting, report, locale,
 			</div>
 
 			<div>
-				<p className="text-xs text-slate-500 mb-2">Weather location</p>
+				<p className="text-xs text-slate-500 mb-2">{t("settings_weather_location")}</p>
 				<div className="flex gap-1.5">
 					<input
 						type="text"

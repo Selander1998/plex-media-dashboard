@@ -1,3 +1,10 @@
+// Media Dashboard — Express backend
+// Required env vars: QBIT_URL, QBIT_USERNAME, QBIT_PASSWORD, REPORT_PATH, WATCHLIST_PATH
+// Optional env vars: TMDB_API_KEY, NTFY_URL, MOVIES_ROOTS (colon-separated), SERIES_ROOTS (colon-separated),
+//   WEATHER_LAT, WEATHER_LON, DASHBOARD_TOKEN, PORT (default 3000)
+// Domains: qBittorrent proxy & auto-processing, library rename planning/execution,
+//   quality checking, report serving, Plex sync, NTFY notifications, weather
+
 import express from "express";
 import { readFile, writeFile, statfs, stat, unlink, copyFile, mkdir, readdir, rename as fsRename } from "fs/promises";
 import { fileURLToPath } from "url";
@@ -28,6 +35,7 @@ const QBIT_USERNAME = process.env.QBIT_USERNAME || "admin";
 const QBIT_PASSWORD = process.env.QBIT_PASSWORD || "adminadmin";
 const REPORT_PATH = process.env.REPORT_PATH || join(__dirname, "scripts", "report.json");
 const WATCHLIST_PATH = process.env.WATCHLIST_PATH || join(__dirname, "scripts", "watchlist.json");
+// All data files live in the same directory as REPORT_PATH (set REPORT_PATH to change the whole data dir)
 const QUALITY_REPORT_PATH = join(dirname(REPORT_PATH), "quality_report.json");
 const QUALITY_CACHE_PATH = join(dirname(REPORT_PATH), "quality_cache.json");
 const QUALITY_SETTINGS_PATH = join(dirname(REPORT_PATH), "quality_settings.json");
@@ -261,7 +269,7 @@ let weatherCache = { data: null, fetchedAt: 0, lat: null, lon: null };
 app.get("/api/weather", async (req, res) => {
 	const lat = parseFloat(req.query.lat);
 	const lon = parseFloat(req.query.lon);
-	if (!lat || !lon) return res.status(400).json({ error: "lat and lon required" });
+	if (!Number.isFinite(lat) || !Number.isFinite(lon)) return res.status(400).json({ error: "lat and lon required" });
 	const age = Date.now() - weatherCache.fetchedAt;
 	if (weatherCache.data && age < 30 * 60 * 1000 && weatherCache.lat === lat && weatherCache.lon === lon) {
 		return res.json(weatherCache.data);
@@ -769,6 +777,7 @@ async function walkFiles(dir) {
 
 const BAD_CODECS = new Set(["mpeg1video", "mpeg2video", "h263", "xvid", "divx", "wmv1", "wmv2", "rv10", "rv20", "msmpeg4v2", "msmpeg4v3"]);
 const EFFICIENT_CODECS = new Set(["hevc", "h265", "x265", "av1", "vp9"]);
+// [minHeight, multiplier] — multipliers are relative to 1080p (1.0); used to scale the 1080p bitrate threshold
 const BITRATE_RATIOS = [[2160, 4.0], [1080, 1.0], [720, 0.4], [0, 0.2]];
 
 async function ffprobeFile(filePath) {
@@ -1383,10 +1392,15 @@ async function applyRenamePlan(plan, scope = "all") {
 
 	if (scope === "all" || scope === "movies") {
 		for (const movie of plan.movies) {
-			if (movie.folderChanged) await attempt(movie.folderCurrent, movie.folderDesired);
+			let folderBase = movie.folderCurrent;
+			if (movie.folderChanged) {
+				const prevFailed = failed;
+				await attempt(movie.folderCurrent, movie.folderDesired);
+				if (failed === prevFailed) folderBase = movie.folderDesired;
+			}
 			for (const file of movie.files) {
 				if (!file.fileChanged) continue;
-				await attempt(join(movie.folderDesired, file.nameCurrent), join(movie.folderDesired, file.nameDesired));
+				await attempt(join(folderBase, file.nameCurrent), join(folderBase, file.nameDesired));
 			}
 		}
 	}
@@ -1526,20 +1540,8 @@ app.get("/api/version", (_req, res) => res.json({ hash: GIT_HASH }));
 app.post("/api/notify", async (req, res) => {
 	if (!NTFY_URL) return res.status(503).json({ error: "NTFY_URL not configured" });
 	const { title } = req.body;
-	try {
-		await fetch(NTFY_URL, {
-			method: "POST",
-			headers: {
-				"Authorization": "Basic " + Buffer.from(`${NTFY_USER}:${NTFY_PASS}`).toString("base64"),
-				"Title": "Download complete",
-				"Tags": "white_check_mark",
-			},
-			body: title || "Torrent finished",
-		});
-		res.json({ ok: true });
-	} catch (e) {
-		res.status(500).json({ error: e.message });
-	}
+	sendNtfy({ title: "Download complete", body: title || "Torrent finished", tags: "white_check_mark" });
+	res.json({ ok: true });
 });
 
 app.get("/api/cache", async (_req, res) => {

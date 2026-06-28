@@ -1,5 +1,6 @@
 """TMDB API session and all search / fetch helpers."""
 
+import json
 import time
 import difflib
 from datetime import date
@@ -14,8 +15,12 @@ _retries = Retry(total=5, backoff_factor=0.5, status_forcelist=[429, 500, 502, 5
 tmdb_session.mount("https://", HTTPAdapter(max_retries=_retries, pool_connections=10, pool_maxsize=10))
 
 
+def _cache_key(endpoint, params):
+	return endpoint + json.dumps(params, sort_keys=True)
+
+
 def tmdb_get(endpoint, params, api_key, cache, delay=0.02):
-	cache_key = endpoint + str(sorted(params.items()))
+	cache_key = _cache_key(endpoint, params)
 	if cache_key in cache:
 		return cache[cache_key]
 	if api_key and not tmdb_session.headers.get("Authorization"):
@@ -95,8 +100,7 @@ def get_tv_season(tv_id, season_number, api_key, cache):
 		)
 		if has_upcoming:
 			# Don't cache — fetch fresh every run so air date changes are always picked up
-			cache_key = f"/tv/{tv_id}/season/{season_number}" + str(sorted({}.items()))
-			cache.pop(cache_key, None)
+			cache.pop(_cache_key(f"/tv/{tv_id}/season/{season_number}", {}), None)
 	return data
 
 

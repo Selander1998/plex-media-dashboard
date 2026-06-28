@@ -19,8 +19,10 @@ export function LangProvider({ children }) {
 		localStorage.setItem("lang", newLang);
 	}
 
+	const locale = lang === "sv" ? "sv-SE" : "en-US";
+
 	return (
-		<LangContext.Provider value={{ lang, switchLang, t }}>
+		<LangContext.Provider value={{ lang, locale, switchLang, t }}>
 			{children}
 		</LangContext.Provider>
 	);

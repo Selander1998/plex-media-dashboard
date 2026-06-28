@@ -3,6 +3,7 @@ import StatCard from "./StatCard.jsx";
 import { normalizeName, findTorrentsForTitle, bestTorrentBadge } from "../torrentUtils.js";
 import { useLang } from "../LangContext.jsx";
 import { copyText } from "../utils/clipboard.js";
+import { useBlacklist } from "../hooks/useBlacklist.js";
 
 function getMissingItems(item, report) {
 	if (!report || item.category.toUpperCase() === "MOVIE") return [];
@@ -38,6 +39,7 @@ export default function Watchlist({
 	onToast,
 }) {
 	const { t } = useLang();
+	const { blockTitle } = useBlacklist({ onBlock, onToast });
 	const [search, setSearch] = useState("");
 	const [typeFilter, setTypeFilter] = useState("all");
 
@@ -50,20 +52,6 @@ export default function Watchlist({
 			</div>
 		);
 	if (!data) return null;
-
-	async function blockItem(title) {
-		onBlock?.(title);
-		onToast?.(t("toast_blacklisted", { title }));
-		try {
-			await fetch("/api/blacklist", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ title }),
-			});
-		} catch {
-			// best-effort — item is already hidden locally
-		}
-	}
 
 	const visibleItems = data.items.filter(
 		(i) => !blockedTitles.has(i.title.toLowerCase()) && diskStatus(i, report) !== "complete",
@@ -123,7 +111,7 @@ export default function Watchlist({
 						<WatchlistCard
 							key={item.title}
 							item={item}
-							onBlock={blockItem}
+							onBlock={blockTitle}
 							matchedTorrents={findTorrentsForTitle(item.title, torrents)}
 							diskStatus={diskStatus(item, report)}
 							missingItems={getMissingItems(item, report)}

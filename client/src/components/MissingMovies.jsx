@@ -3,6 +3,7 @@ import StatCard from "./StatCard.jsx";
 import { findTorrentsForTitle, bestTorrentBadge } from "../torrentUtils.js";
 import { useLang } from "../LangContext.jsx";
 import { copyText } from "../utils/clipboard.js";
+import { useBlacklist } from "../hooks/useBlacklist.js";
 
 export default function MissingMovies({
 	data,
@@ -37,7 +38,7 @@ export default function MissingMovies({
 		return acc;
 	}, {});
 
-const collections = Object.keys(byCollection).sort();
+	const collections = Object.keys(byCollection).sort();
 
 	return (
 		<div>
@@ -99,20 +100,13 @@ function MovieRow({ movie, onBlacklist, matchedTorrents = [], isNew = false, onT
 		setTimeout(() => setCopied(false), 1500);
 	}
 	const { t } = useLang();
+	const { blockTitle } = useBlacklist({ onBlock: onBlacklist, onToast });
 	const [pending, setPending] = useState(false);
 
 	async function handleBlacklist() {
 		setPending(true);
 		try {
-			const res = await fetch("/api/blacklist", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ title: movie.title }),
-			});
-			if (res.ok) {
-				onBlacklist(movie.title);
-				onToast?.(t("toast_blacklisted", { title: movie.title }));
-			}
+			await blockTitle(movie.title);
 		} finally {
 			setPending(false);
 		}

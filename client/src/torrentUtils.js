@@ -39,7 +39,7 @@ export function bestTorrentBadge(torrents, t) {
 	return { label: count > 1 ? `${label} ×${count}` : label, cls };
 }
 
-export function torrentBadgeProps(torrent, t) {
+function torrentBadgeProps(torrent, t) {
 	const pct = torrent.progress === 1 ? 100 : Math.floor(torrent.progress * 100);
 	if (["downloading", "stalledDL", "metaDL", "queuedDL"].includes(torrent.state))
 		return { label: t("tbadge_downloading", { pct }), cls: "text-blue-400 border-blue-800 bg-blue-950/40" };

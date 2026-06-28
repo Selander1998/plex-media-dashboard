@@ -3,6 +3,7 @@ import { useLang } from "../LangContext.jsx";
 import { translations, availableLangs, flagUrls } from "../translations.js";
 import { diskStatus } from "./Watchlist.jsx";
 import { formatBytes } from "../utils/format.js";
+import { countWarnings } from "../utils/warningUtils.js";
 import SettingsPanel from "./SettingsPanel.jsx";
 import NotificationsPanel from "./NotificationsPanel.jsx";
 
@@ -54,15 +55,11 @@ export default function Header({
 	onToast,
 	settings,
 	updateSetting,
-	notifHistory,
-	notifUnread,
-	onNotifRead,
-	onNotifClear,
+	notif = {},
 	qualityData,
 	renameData,
 }) {
-	const { lang, switchLang, t } = useLang();
-	const locale = lang === "sv" ? "sv-SE" : "en-US";
+	const { lang, locale, switchLang, t } = useLang();
 	const [settingsOpen, setSettingsOpen] = useState(false);
 	const [notifsOpen, setNotifsOpen] = useState(false);
 	const [now, setNow] = useState(() => new Date());
@@ -275,20 +272,20 @@ const totalSize = (report?.movies?.total_size ?? 0) + (report?.series?.total_siz
 					{/* Notifications */}
 					<div ref={notifsRef} className="relative flex items-center">
 						<button
-							onClick={() => { setNotifsOpen((o) => !o); if (!notifsOpen) onNotifRead(); }}
+							onClick={() => { setNotifsOpen((o) => !o); if (!notifsOpen) notif.onRead?.(); }}
 							className="relative cursor-pointer text-slate-500 hover:text-slate-300 transition-colors"
 							title={t("notif_title")}
 						>
 							<svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
 								<path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zm0 16a2 2 0 01-2-2h4a2 2 0 01-2 2z" />
 							</svg>
-							{notifUnread > 0 && (
+							{notif.unread > 0 && (
 								<span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-indigo-500 rounded-full text-[9px] text-white flex items-center justify-center leading-none">
-									{notifUnread > 9 ? "9+" : notifUnread}
+									{notif.unread > 9 ? "9+" : notif.unread}
 								</span>
 							)}
 						</button>
-						{notifsOpen && <NotificationsPanel history={notifHistory} onClear={onNotifClear} />}
+						{notifsOpen && <NotificationsPanel history={notif.history} onClear={notif.onClear} />}
 					</div>
 
 					{/* Settings */}
@@ -409,29 +406,14 @@ const totalSize = (report?.movies?.total_size ?? 0) + (report?.series?.total_siz
 								</span>
 							) : null;
 						})()}
-						{tabDef.id === "warnings" &&
-							report &&
-							(() => {
-								const STRUCTURAL = new Set(["corrupt_or_unreadable", "no_video_stream", "no_audio_stream", "bad_codec"]);
-								const hasStructural = (item) => item.issues.some((i) => { const t = i.indexOf(":") === -1 ? i : i.slice(0, i.indexOf(":")); return STRUCTURAL.has(t); });
-								const qualityWarnings = qualityData
-									? (qualityData.movies ?? []).filter(hasStructural).length + (qualityData.series ?? []).filter(hasStructural).length
-									: 0;
-								const count =
-									(report.movies?.multiple_videos?.length ?? 0) +
-									(report.movies?.unneeded_files?.length ?? 0) +
-									(report.movies?.not_found_on_tmdb?.length ?? 0) +
-									(report.series?.multiple_videos?.length ?? 0) +
-									(report.series?.unneeded_files?.length ?? 0) +
-									(report.series?.not_found_on_tmdb?.length ?? 0) +
-									(report.plex_sync?.not_indexed?.length ?? 0) +
-									qualityWarnings;
-								return count > 0 ? (
-									<span className={`text-[11px] px-1.5 py-px rounded-full min-w-5 text-center ${tab === tabDef.id ? "bg-indigo-500 text-white" : "bg-surface2 text-slate-400"}`}>
-										{count}
-									</span>
-								) : null;
-							})()}
+						{tabDef.id === "warnings" && report && (() => {
+							const count = countWarnings(report, qualityData);
+							return count > 0 ? (
+								<span className={`text-[11px] px-1.5 py-px rounded-full min-w-5 text-center ${tab === tabDef.id ? "bg-indigo-500 text-white" : "bg-surface2 text-slate-400"}`}>
+									{count}
+								</span>
+							) : null;
+						})()}
 						{tabDef.id === "library" && renameData && renameData.stats.total > 0 && (
 							<span className={`text-[11px] px-1.5 py-px rounded-full min-w-5 text-center ${tab === tabDef.id ? "bg-indigo-500 text-white" : "bg-surface2 text-slate-400"}`}>
 								{renameData.stats.total}
