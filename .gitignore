@@ -3,6 +3,7 @@ node_modules/
 
 # Environment — copy .env.example and fill in your values
 .env
+scripts/.env
 
 # Built frontend
 client/dist/
