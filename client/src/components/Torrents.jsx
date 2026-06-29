@@ -88,6 +88,11 @@ function SpeedSlider({ label, limitBytes, endpoint, colorClass, accentClass, cur
 	const MAX_KBPS = 102400;
 	const [kbps, setKbps] = useState(0);
 	const initialized = useRef(false);
+	const [showInput, setShowInput] = useState(false);
+	const [minutesInput, setMinutesInput] = useState("60");
+	const [unlimitedUntil, setUnlimitedUntil] = useState(null);
+	const [remaining, setRemaining] = useState(null);
+	const savedKbps = useRef(null);
 
 	useEffect(() => {
 		if (!initialized.current && limitBytes !== undefined) {
@@ -95,6 +100,26 @@ function SpeedSlider({ label, limitBytes, endpoint, colorClass, accentClass, cur
 			initialized.current = true;
 		}
 	}, [limitBytes]);
+
+	useEffect(() => {
+		if (!unlimitedUntil) return;
+		const id = setInterval(() => {
+			const secs = Math.max(0, Math.ceil((unlimitedUntil - Date.now()) / 1000));
+			setRemaining(secs);
+			if (secs === 0) {
+				setUnlimitedUntil(null);
+				setRemaining(null);
+				const restore = savedKbps.current ?? 0;
+				setKbps(restore);
+				fetch(endpoint, {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ limit: restore * 1024 }),
+				});
+			}
+		}, 1000);
+		return () => clearInterval(id);
+	}, [unlimitedUntil, endpoint]);
 
 	function handleChange(e) {
 		setKbps(Number(e.target.value));
@@ -115,6 +140,42 @@ function SpeedSlider({ label, limitBytes, endpoint, colorClass, accentClass, cur
 		}
 	}
 
+	async function activateUnlimited() {
+		const minutes = parseInt(minutesInput, 10);
+		if (!minutes || minutes < 1) return;
+		savedKbps.current = kbps;
+		setShowInput(false);
+		try {
+			const res = await fetch(endpoint, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ limit: 0 }),
+			});
+			if (!res.ok) throw new Error();
+			setKbps(0);
+			setUnlimitedUntil(Date.now() + minutes * 60 * 1000);
+			setRemaining(minutes * 60);
+		} catch {
+			onToast?.(tr("action_failed"), true);
+		}
+	}
+
+	async function cancelUnlimited() {
+		setUnlimitedUntil(null);
+		setRemaining(null);
+		const restore = savedKbps.current ?? 0;
+		setKbps(restore);
+		try {
+			await fetch(endpoint, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ limit: restore * 1024 }),
+			});
+		} catch {
+			onToast?.(tr("action_failed"), true);
+		}
+	}
+
 	return (
 		<div className="flex items-center gap-2 sm:gap-3 min-w-0">
 			<span className={`text-base leading-none w-4 shrink-0 ${colorClass}`}>{label}</span>
@@ -128,12 +189,65 @@ function SpeedSlider({ label, limitBytes, endpoint, colorClass, accentClass, cur
 				step={256}
 				value={kbps}
 				onChange={handleChange}
-				className={`flex-1 min-w-0 h-1 cursor-pointer ${accentClass}`}
+				disabled={!!unlimitedUntil}
+				className={`flex-1 min-w-0 h-1 ${unlimitedUntil ? "opacity-30 cursor-not-allowed" : `cursor-pointer ${accentClass}`}`}
 				onPointerUp={handleRelease}
 			/>
-			<span className="text-xs text-slate-500 w-14 sm:w-24 text-right shrink-0 tabular-nums">
-				{formatKbps(kbps, tr)}
-			</span>
+			{unlimitedUntil ? (
+				<div className="flex items-center gap-1.5 shrink-0">
+					<span className="text-xs tabular-nums text-emerald-400 font-medium px-2 py-0.5 rounded border border-emerald-800 bg-emerald-500/10">
+						∞ {formatEta(remaining ?? 0)}
+					</span>
+					<button
+						onClick={cancelUnlimited}
+						title={tr("unlimited_cancel")}
+						className="text-[11px] px-1.5 py-0.5 rounded border border-slate-700 text-slate-400 hover:border-red-700 hover:text-red-400 transition-colors cursor-pointer"
+					>
+						✕
+					</button>
+				</div>
+			) : showInput ? (
+				<div className="flex items-center gap-1 shrink-0">
+					<input
+						autoFocus
+						type="number"
+						min={1}
+						value={minutesInput}
+						onChange={(e) => setMinutesInput(e.target.value)}
+						onKeyDown={(e) => {
+							if (e.key === "Enter") activateUnlimited();
+							if (e.key === "Escape") setShowInput(false);
+						}}
+						className="w-12 bg-surface2 border border-border rounded px-1.5 py-0.5 text-xs text-slate-200 outline-none focus:border-emerald-600 tabular-nums text-center"
+					/>
+					<span className="text-[11px] text-slate-500">min</span>
+					<button
+						onClick={activateUnlimited}
+						className="text-[11px] px-1.5 py-0.5 rounded border border-emerald-800 text-emerald-400 hover:bg-emerald-900/30 transition-colors cursor-pointer"
+					>
+						✓
+					</button>
+					<button
+						onClick={() => setShowInput(false)}
+						className="text-[11px] px-1.5 py-0.5 rounded border border-slate-700 text-slate-500 hover:text-slate-300 transition-colors cursor-pointer"
+					>
+						✕
+					</button>
+				</div>
+			) : (
+				<div className="flex items-center gap-1.5 shrink-0">
+					<span className="text-xs text-slate-500 w-14 sm:w-20 text-right tabular-nums">
+						{formatKbps(kbps, tr)}
+					</span>
+					<button
+						onClick={() => setShowInput(true)}
+						title={tr("unlimited_btn")}
+						className="px-1.5 py-0.5 rounded border border-slate-700 text-[11px] text-slate-400 hover:border-emerald-700 hover:text-emerald-400 transition-colors cursor-pointer"
+					>
+						∞
+					</button>
+				</div>
+			)}
 		</div>
 	);
 }
