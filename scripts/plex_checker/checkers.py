@@ -53,7 +53,7 @@ _WORKERS = 8  # concurrent TMDB connections; stays well under the ~50 req/s rate
 # They are never counted as episodes and are flagged as unneeded so the user can review manually.
 _FEATURETTE_RE = re.compile(
 	r'inside[.\s_-]the[.\s_-]episode|deleted[.\s_-]scene|behind[.\s_-]the[.\s_-]scenes?'
-	r'|making[.\s_-]of|featurette|interview|preview|recap|trailer',
+	r'|making[.\s_-]of|featurette',
 	re.IGNORECASE,
 )
 
