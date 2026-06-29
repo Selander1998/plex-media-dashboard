@@ -2,6 +2,7 @@ export function normalizeName(s) {
 	return s
 		.toLowerCase()
 		.replace(/['''ʼ]/g, "")
+		.replace(/&/g, "and")
 		.replace(/[^a-z0-9 ]/g, " ")
 		.replace(/\s+/g, " ")
 		.trim();
