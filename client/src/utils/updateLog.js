@@ -1,7 +1,7 @@
 export function shouldShowUpdateLine(line) {
 	const trimmed = line.trim();
 	if (/^═+$/.test(trimmed)) return false;
-	if (/^\[PROGRESS\] (movies|movies_p2|series|quality)/.test(trimmed)) return false;
+	if (/^\[PROGRESS\] (movies|movies_p2|series|quality|rename)/.test(trimmed)) return false;
 	if (/^\s*\[\d+\/\d+\]/.test(trimmed)) return false;
 	if (/^\s*✓ .+\(\d{4}\)(\s+\[.*\])?$/.test(trimmed)) return false;
 	if (/^\s*✓ Season \d+: complete/.test(trimmed)) return false;
@@ -26,6 +26,8 @@ export function extractUpdateStat(line, prev) {
 		return { ...prev, watchlist: parseInt(m[1].replace(/,/g, "")) };
 	if ((m = line.match(/Plex has (\d[\d,]*) files? indexed/i)))
 		return { ...prev, plexFiles: parseInt(m[1].replace(/,/g, "")) };
+	if ((m = line.match(/\[PROGRESS\] rename (\d+)/i)))
+		return { ...prev, renamePlan: parseInt(m[1]) };
 	return prev;
 }
 

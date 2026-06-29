@@ -1,7 +1,9 @@
 import { Router } from "express";
 import { spawn } from "child_process";
-import { UPDATE_SCRIPT } from "../lib/config.js";
+import { writeFile } from "fs/promises";
+import { UPDATE_SCRIPT, RENAME_PLAN_PATH } from "../lib/config.js";
 import { refreshPlexLibraries } from "../lib/plex.js";
+import { buildRenamePlan } from "../lib/rename.js";
 
 const router = Router();
 const updateState = { running: false, child: null, aborted: false };
@@ -57,6 +59,17 @@ router.post("/api/update", (req, res) => {
 				send({ aborted: true });
 			} else if (code === 0) {
 				await refreshPlexLibraries();
+				try {
+					const now = () => new Date().toLocaleTimeString("sv-SE", { hour12: false });
+					send({ line: `[${now()}] Running library rename scan…` });
+					const plan = await buildRenamePlan();
+					await writeFile(RENAME_PLAN_PATH, JSON.stringify(plan));
+					const n = plan.stats.total;
+					send({ line: `[PROGRESS] rename ${n}` });
+					send({ line: `[${now()}] Library rename plan updated — ${n} change${n !== 1 ? "s" : ""} pending` });
+				} catch (renameErr) {
+					send({ line: `[WARN] Library rename scan failed: ${renameErr.message}` });
+				}
 				send({ done: true });
 			} else {
 				send({ error: true });

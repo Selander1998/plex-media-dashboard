@@ -49,6 +49,14 @@ from .media_scan import (
 
 _WORKERS = 8  # concurrent TMDB connections; stays well under the ~50 req/s rate limit
 
+# Files with these keywords in their names are bonus/featurette content even when they carry S##E## tags.
+# They are never counted as episodes and are flagged as unneeded so the user can review manually.
+_FEATURETTE_RE = re.compile(
+	r'inside[.\s_-]the[.\s_-]episode|deleted[.\s_-]scene|behind[.\s_-]the[.\s_-]scenes?'
+	r'|making[.\s_-]of|featurette|interview|preview|recap|trailer',
+	re.IGNORECASE,
+)
+
 
 class MovieResult(TypedDict):
 	total: int
@@ -70,6 +78,7 @@ class SeriesResult(TypedDict):
 	multiple_videos: list[dict[str, Any]]
 	unneeded_files: list[dict[str, Any]]
 	not_found_on_tmdb: list[dict[str, Any]]
+	folder_renames: list[dict[str, Any]]
 
 
 class PlexSyncResult(TypedDict):
@@ -266,10 +275,24 @@ def _process_show_folder(
 		log_lines.append(f"  [WARN] {show_folder.name} — not found on TMDB")
 		return {
 			"not_found": {"folder": show_folder.name, "title": title, "year": year},
+			"folder_rename": None,
 			"missing": [], "multiple_videos": [], "unneeded_files": [],
 			"total_size": 0, "seasons_count": 0, "episodes_count": 0,
 			"log_lines": log_lines,
 		}
+
+	folder_rename: dict[str, Any] | None = None
+	if year is None:
+		tmdb_year = (tv.get("first_air_date") or "")[:4]
+		if tmdb_year.isdigit():
+			suggested = f"{title} ({tmdb_year})"
+			if suggested != show_folder.name:
+				folder_rename = {
+					"current_name": show_folder.name,
+					"current_path": str(show_folder),
+					"suggested_name": suggested,
+				}
+				log_lines.append(f"  [INFO] {show_folder.name} — no year in folder name, suggest: {suggested}")
 
 	tv_id = tv["id"]
 	details = get_tv_details(tv_id, api_key, cache)
@@ -365,6 +388,12 @@ def _process_show_folder(
 			ep_to_path: dict[int, Path] = {}
 			seen_pairs: set[frozenset] = set()
 			for f in files:
+				if not re.search(r'[Ss]\d+[Ee]\d+', f.name):
+					continue  # bonus/extra without S##E## — already caught as unneeded
+				if _FEATURETTE_RE.search(f.name):
+					unneeded_files.append({"show": title, "file": f"{show_folder.name}/Season {sn:02d}/{f.name}"})
+					log_lines.append(f"  [WARN] {show_folder.name}  S{sn:02d}: bonus content in season folder (needs manual review): {f.name}")
+					continue
 				eps = parse_episode_numbers(f.name)
 				if eps:
 					for ep in eps:
@@ -372,13 +401,25 @@ def _process_show_folder(
 							pair = frozenset([str(ep_to_path[ep]), str(f)])
 							if pair not in seen_pairs:
 								seen_pairs.add(pair)
-								eps_in_conflict = sorted(parse_episode_numbers(ep_to_path[ep].name) | parse_episode_numbers(f.name))
+								existing_path = ep_to_path[ep]
+								existing_eps = parse_episode_numbers(existing_path.name)
+								new_eps = parse_episode_numbers(f.name)
+								eps_in_conflict = sorted(existing_eps | new_eps)
 								ep_label = eps_in_conflict[0] if len(eps_in_conflict) == 1 else eps_in_conflict
+								if new_eps > existing_eps:
+									# existing has fewer episodes — prefer it (single-ep file)
+									suggested_keep = str(existing_path)
+								elif existing_eps > new_eps:
+									# new file has fewer episodes — prefer it (single-ep file)
+									suggested_keep = str(f)
+								else:
+									suggested_keep = None
 								multiple_videos.append({
 									"show": title,
 									"season": sn,
 									"episode": ep_label,
-									"files": [_file_info(ep_to_path[ep]), _file_info(f)],
+									"files": [_file_info(existing_path), _file_info(f)],
+									"suggested_keep": suggested_keep,
 								})
 						else:
 							ep_to_file[ep] = f.name
@@ -421,6 +462,7 @@ def _process_show_folder(
 
 	return {
 		"not_found": None,
+		"folder_rename": folder_rename,
 		"missing": missing,
 		"multiple_videos": multiple_videos,
 		"unneeded_files": unneeded_files,
@@ -569,6 +611,7 @@ def check_series(series_roots: list[str], api_key: str | None, cache: dict[str, 
 	multiple_videos: list[dict[str, Any]] = []
 	unneeded_files: list[dict[str, Any]] = []
 	not_found_on_tmdb: list[dict[str, Any]] = []
+	folder_renames: list[dict[str, Any]] = []
 	total_seasons_on_disk = 0
 	total_episodes_on_disk = 0
 	total_size = 0
@@ -578,6 +621,8 @@ def check_series(series_roots: list[str], api_key: str | None, cache: dict[str, 
 			continue  # blacklisted
 		for line in r["log_lines"]:
 			print(line)
+		if r["folder_rename"]:
+			folder_renames.append(r["folder_rename"])
 		if r["not_found"]:
 			not_found_on_tmdb.append(r["not_found"])
 			continue
@@ -598,6 +643,7 @@ def check_series(series_roots: list[str], api_key: str | None, cache: dict[str, 
 		"multiple_videos": multiple_videos,
 		"unneeded_files": unneeded_files,
 		"not_found_on_tmdb": not_found_on_tmdb,
+		"folder_renames": folder_renames,
 	}
 
 

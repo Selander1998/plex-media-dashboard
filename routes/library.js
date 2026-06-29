@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { readFile, writeFile, unlink } from "fs/promises";
-import { resolve } from "path";
+import { readFile, writeFile, unlink, rename as fsRename } from "fs/promises";
+import { resolve, join, dirname, basename } from "path";
 import { RENAME_PLAN_PATH, REPORT_PATH, MOVIES_ROOTS, SERIES_ROOTS } from "../lib/config.js";
 import { buildRenamePlan, applyRenamePlan } from "../lib/rename.js";
 import { refreshPlexLibraries } from "../lib/plex.js";
@@ -69,6 +69,39 @@ router.delete("/api/library/file", async (req, res) => {
 		} catch { /* report missing or malformed */ }
 
 		res.json({ ok: true });
+	} catch (err) {
+		res.status(500).json({ error: err.message });
+	}
+});
+
+router.post("/api/library/rename-folder", async (req, res) => {
+	try {
+		const { currentPath, suggestedName } = req.body ?? {};
+		if (!currentPath || !suggestedName) return res.status(400).json({ error: "currentPath and suggestedName required" });
+
+		const abs = resolve(currentPath);
+		if (!SERIES_ROOTS.some((r) => abs.startsWith(resolve(r) + "/"))) {
+			return res.status(403).json({ error: "Path is outside series roots" });
+		}
+		if (basename(suggestedName) !== suggestedName || suggestedName.includes("/")) {
+			return res.status(400).json({ error: "suggestedName must be a plain folder name" });
+		}
+
+		const newPath = join(dirname(abs), suggestedName);
+		await fsRename(abs, newPath);
+		await refreshPlexLibraries().catch(() => {});
+
+		try {
+			const report = JSON.parse(await readFile(REPORT_PATH, "utf-8"));
+			if (report.series?.folder_renames) {
+				report.series.folder_renames = report.series.folder_renames.filter(
+					(r) => resolve(r.current_path) !== abs
+				);
+				await writeFile(REPORT_PATH, JSON.stringify(report));
+			}
+		} catch { /* report missing or malformed */ }
+
+		res.json({ ok: true, newPath });
 	} catch (err) {
 		res.status(500).json({ error: err.message });
 	}

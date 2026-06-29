@@ -57,7 +57,8 @@ export default function UpdateModal({ updateStatus, updateLog, updateStats, noTm
 	const showsElapsed     = secs(ts.showsStart,     ts.plexStart      ?? ts.watchlistStart ?? ts.endTime);
 	const plexElapsed      = secs(ts.plexStart,      ts.watchlistStart ?? ts.endTime);
 	const watchlistElapsed = secs(ts.watchlistStart, ts.qualityStart   ?? ts.endTime);
-	const qualityElapsed   = secs(ts.qualityStart,   ts.endTime);
+	const qualityElapsed   = secs(ts.qualityStart,   ts.renameStart ?? ts.endTime);
+	const renameElapsed    = secs(ts.renameStart,    ts.endTime);
 
 	return (
 		<div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
@@ -185,6 +186,12 @@ export default function UpdateModal({ updateStatus, updateLog, updateStats, noTm
 						{qualityElapsed != null && <span className="text-amber-600">{fmtDuration(qualityElapsed)}</span>}
 						{updateStatus === "error" && <PillStatus done={updateStats.qualityTotal != null} />}
 					</span>
+					{(updateStats.renamePlan != null || ts.renameStart) && (
+						<span className="px-2.5 py-1 rounded-md bg-slate-500/15 border border-slate-700 text-slate-300 text-xs font-medium flex items-center gap-1.5">
+							<span>{updateStats.renamePlan != null ? updateStats.renamePlan : pending} {t("phase_rename")}</span>
+							{renameElapsed != null && <span className="text-slate-500">{fmtDuration(renameElapsed)}</span>}
+						</span>
+					)}
 				</div>
 
 				{/* Log */}

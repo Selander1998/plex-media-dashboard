@@ -162,8 +162,8 @@ export default function LibraryRename({ data, loading, onRefresh, onDataChange }
 	}
 
 	const stats = data?.stats;
-	const warnings = data?.warnings ?? { unparseable: [], tmdbShowsNotFound: [], multipleVideos: [] };
-	const warningCount = warnings.unparseable.length + warnings.tmdbShowsNotFound.length + (warnings.multipleVideos?.length ?? 0);
+	const warnings = data?.warnings ?? { unparseable: [], tmdbShowsNotFound: [], multipleVideos: [], featurettes: [] };
+	const warningCount = (warnings.featurettes?.length ?? 0) + warnings.unparseable.length + warnings.tmdbShowsNotFound.length + (warnings.multipleVideos?.length ?? 0);
 	const movieChanges = stats ? stats.movieFolders + stats.movieFiles : 0;
 	const seriesChanges = stats ? stats.seasonFolders + stats.episodeFiles : 0;
 
@@ -255,6 +255,26 @@ export default function LibraryRename({ data, loading, onRefresh, onDataChange }
 					</button>
 					{warningsOpen && (
 						<div className="border-t border-amber-800/40 px-4 py-3 flex flex-col gap-3">
+							{warnings.featurettes?.length > 0 && (
+								<div className="flex flex-col gap-1.5">
+									<span className="text-xs font-semibold text-red-400 uppercase tracking-wider">{t("lib_warn_featurettes")}</span>
+									{warnings.featurettes.map((w, i) => (
+										<div key={i} className="flex items-center gap-1 pl-2">
+											<span className="text-xs text-slate-400 font-mono flex-1 truncate">{w.show} / {w.season} / {w.file}</span>
+											<TrashButton
+												deleting={deleting === w.fullPath}
+												onClick={() => deleteFile(w.fullPath, () => onDataChange((prev) => ({
+													...prev,
+													warnings: {
+														...prev.warnings,
+														featurettes: prev.warnings.featurettes.filter((_, j) => j !== i),
+													},
+												})))}
+											/>
+										</div>
+									))}
+								</div>
+							)}
 							{warnings.tmdbShowsNotFound.length > 0 && (
 								<div className="flex flex-col gap-1.5">
 									<span className="text-xs font-semibold text-amber-500 uppercase tracking-wider">{t("lib_warn_tmdb")}</span>

@@ -21,6 +21,7 @@ export function countWarnings(report, qualityData) {
 		(report.series?.multiple_videos?.length ?? 0) +
 		(report.series?.unneeded_files?.length ?? 0) +
 		(report.series?.not_found_on_tmdb?.length ?? 0) +
+		(report.series?.folder_renames?.length ?? 0) +
 		(report.plex_sync?.not_indexed?.length ?? 0) +
 		qualityWarnings
 	);

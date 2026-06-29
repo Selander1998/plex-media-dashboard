@@ -77,9 +77,10 @@ function formatSize(bytes) {
 	return `${(bytes / 1e3).toFixed(0)} KB`;
 }
 
-function MultipleVideoRow({ files, onToast, onReportRefresh }) {
+function MultipleVideoRow({ files, suggestedKeep, onToast, onReportRefresh }) {
 	const [deletedPaths, setDeletedPaths] = useState(new Set());
 	const [pending, setPending] = useState(false);
+	const { t } = useLang();
 
 	const visible = files.filter((f) => !deletedPaths.has(f.full_path));
 	if (visible.length === 0) return null;
@@ -116,21 +117,36 @@ function MultipleVideoRow({ files, onToast, onReportRefresh }) {
 
 	return (
 		<div className="flex flex-col gap-1.5">
-			{visible.map((f) => (
-				<div key={f.full_path} className="flex items-center gap-2 rounded border border-border bg-surface2 px-3 py-2">
-					<div className="flex flex-col gap-0.5 flex-1 min-w-0">
-						<span className="text-slate-200 text-[12px] font-mono truncate">{f.name}</span>
-						<span className="text-slate-500 text-[11px]">{formatSize(f.size)}</span>
-					</div>
-					<button
-						onClick={() => handleKeep(f.full_path)}
-						disabled={pending}
-						className="shrink-0 text-[11px] px-2 py-0.5 rounded border border-green-800 bg-green-950/40 text-green-400 hover:bg-green-900/50 disabled:opacity-40 cursor-pointer transition-colors"
+			{visible.map((f) => {
+				const isRecommended = suggestedKeep && f.full_path === suggestedKeep;
+				return (
+					<div
+						key={f.full_path}
+						className={`flex items-center gap-2 rounded border px-3 py-2 ${isRecommended ? "border-emerald-800 bg-emerald-950/20" : "border-border bg-surface2"}`}
 					>
-						{pending ? "…" : "Keep"}
-					</button>
-				</div>
-			))}
+						<div className="flex flex-col gap-0.5 flex-1 min-w-0">
+							<span className={`text-[12px] font-mono truncate ${isRecommended ? "text-slate-100" : "text-slate-200"}`}>{f.name}</span>
+							<div className="flex items-center gap-2">
+								<span className="text-slate-500 text-[11px]">{formatSize(f.size)}</span>
+								{isRecommended && (
+									<span className="text-[10px] font-medium text-emerald-400">{t("multi_video_recommended")}</span>
+								)}
+							</div>
+						</div>
+						<button
+							onClick={() => handleKeep(f.full_path)}
+							disabled={pending}
+							className={`shrink-0 text-[11px] px-2 py-0.5 rounded border disabled:opacity-40 cursor-pointer transition-colors ${
+								isRecommended
+									? "border-emerald-700 bg-emerald-900/50 text-emerald-300 hover:bg-emerald-800/60"
+									: "border-slate-700 bg-surface text-slate-400 hover:border-green-800 hover:bg-green-950/40 hover:text-green-400"
+							}`}
+						>
+							{pending ? "…" : t("keep_btn")}
+						</button>
+					</div>
+				);
+			})}
 		</div>
 	);
 }
@@ -178,6 +194,7 @@ export default function Warnings({ report, error, loading, qualityData, onToast,
 	const seriesMultiple = report.series?.multiple_videos ?? [];
 	const seriesUnneeded = report.series?.unneeded_files ?? [];
 	const seriesNotOnTmdb = report.series?.not_found_on_tmdb ?? [];
+	const seriesFolderRenames = report.series?.folder_renames ?? [];
 	const notIndexed = report.plex_sync?.not_indexed ?? [];
 
 	const { corruptMovies, corruptSeries, badCodecMovies, badCodecSeries } =
@@ -332,6 +349,24 @@ export default function Warnings({ report, error, loading, qualityData, onToast,
 				</Section>
 			)}
 
+			{seriesFolderRenames.length > 0 && (
+				<Section
+					title={t("warn_series_missing_year")}
+					count={seriesFolderRenames.length}
+					colorClass="text-amber-500">
+					{seriesFolderRenames.map((r, i) => (
+						<FolderRenameRow
+							key={i}
+							currentName={r.current_name}
+							currentPath={r.current_path}
+							suggestedName={r.suggested_name}
+							onToast={onToast}
+							onReportRefresh={onReportRefresh}
+						/>
+					))}
+				</Section>
+			)}
+
 			{seriesNotOnTmdb.length > 0 && (
 				<Section
 					title={t("warn_series_not_on_tmdb")}
@@ -354,6 +389,7 @@ export default function Warnings({ report, error, loading, qualityData, onToast,
 						<Row key={i} label={m.folder}>
 							<MultipleVideoRow
 								files={m.files}
+								suggestedKeep={m.suggested_keep ?? null}
 								onToast={onToast}
 								onReportRefresh={onReportRefresh}
 							/>
@@ -399,6 +435,7 @@ export default function Warnings({ report, error, loading, qualityData, onToast,
 											<span className="text-slate-300 font-mono text-[11px]">{epLabel}</span>
 											<MultipleVideoRow
 												files={m.files}
+												suggestedKeep={m.suggested_keep ?? null}
 												onToast={onToast}
 												onReportRefresh={onReportRefresh}
 											/>
@@ -429,6 +466,49 @@ export default function Warnings({ report, error, loading, qualityData, onToast,
 					))}
 				</Section>
 			)}
+		</div>
+	);
+}
+
+function FolderRenameRow({ currentName, currentPath, suggestedName, onToast, onReportRefresh }) {
+	const { t } = useLang();
+	const [done, setDone] = useState(false);
+	const [pending, setPending] = useState(false);
+
+	if (done) return null;
+
+	async function handleRename() {
+		setPending(true);
+		try {
+			const res = await fetch("/api/library/rename-folder", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ currentPath, suggestedName }),
+			});
+			if (!res.ok) throw new Error((await res.json()).error ?? res.statusText);
+			setDone(true);
+			onToast?.(t("toast_folder_renamed", { name: suggestedName }));
+			onReportRefresh?.();
+		} catch (err) {
+			onToast?.(err.message, true);
+		} finally {
+			setPending(false);
+		}
+	}
+
+	return (
+		<div className="flex items-center gap-3 py-1">
+			<div className="flex flex-col gap-0.5 flex-1 min-w-0">
+				<span className="text-slate-400 text-[12px] font-mono truncate">{currentName}</span>
+				<span className="text-emerald-400 text-[12px] font-mono truncate">→ {suggestedName}</span>
+			</div>
+			<button
+				onClick={handleRename}
+				disabled={pending}
+				className="shrink-0 text-[11px] px-2 py-0.5 rounded border border-emerald-800 bg-emerald-900/30 text-emerald-300 hover:bg-emerald-800/50 disabled:opacity-40 cursor-pointer transition-colors"
+			>
+				{pending ? "…" : t("rename_folder_btn")}
+			</button>
 		</div>
 	);
 }

@@ -93,6 +93,8 @@ export function useUpdate({ onSuccess, onError } = {}) {
 							timestamps.current.watchlistStart = Date.now();
 						if (!timestamps.current.qualityStart && /Running quality checker/i.test(line))
 							timestamps.current.qualityStart = Date.now();
+						if (!timestamps.current.renameStart && /Running library rename scan/i.test(line))
+							timestamps.current.renameStart = Date.now();
 						if (shouldShowUpdateLine(line)) newLines.push(line);
 					}
 				}
