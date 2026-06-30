@@ -468,7 +468,7 @@ const totalSize = (report?.movies?.total_size ?? 0) + (report?.series?.total_siz
 
 						{tabDef.id === "missing_movies" && report && (
 							<span className={`text-[11px] px-1.5 py-px rounded-full min-w-5 text-center ${tab === tabDef.id ? "bg-indigo-500 text-white" : "bg-surface2 text-slate-400"}`}>
-								{report?.movies?.missing?.filter((m) => !blockedTitles.has(m.title.toLowerCase())).length ?? 0}
+								{report?.movies?.missing?.filter((m) => !blockedTitles.has(m.title.toLowerCase()) && !m.in_theaters).length ?? 0}
 							</span>
 						)}
 						{tabDef.id === "missing_movies" && newItems.movies.size > 0 && (
@@ -479,7 +479,7 @@ const totalSize = (report?.movies?.total_size ?? 0) + (report?.series?.total_siz
 
 						{tabDef.id === "watchlist" && watchlist && (() => {
 							const count = watchlist.items.filter(
-								(i) => !blockedTitles.has(i.title.toLowerCase()) && diskStatus(i, report) !== "complete",
+								(i) => !blockedTitles.has(i.title.toLowerCase()) && diskStatus(i, report) !== "complete" && !i.in_theaters,
 							).length;
 							return count > 0 ? (
 								<span className={`text-[11px] px-1.5 py-px rounded-full min-w-5 text-center ${tab === tabDef.id ? "bg-indigo-500 text-white" : "bg-surface2 text-slate-400"}`}>
