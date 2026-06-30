@@ -833,16 +833,18 @@ async function handleAction(action, hash) {
 																	<td colSpan={10} className="bg-red-950/30 border-b border-red-900/40 px-3 sm:px-4 py-2.5">
 																		<div className="flex flex-wrap items-start gap-2">
 																			<div className="flex-1 min-w-0">
-																				<span className="text-xs text-red-400 font-medium">Quality blocked: </span>
-																				<span className="text-xs text-red-300/80">{block.issues.join(", ")}</span>
+																				<span className="text-xs text-red-400 font-medium">{block.issues.some((i) => i.startsWith("unidentified:")) ? "Unidentified — " : "Quality blocked — "}</span>
+																				<span className="text-xs text-red-300/80">{block.issues.map((i) => i === "unidentified:no_year" ? "no year in title" : i === "unidentified:no_episode_info" ? "no episode info" : i).join(", ")}</span>
 																			</div>
 																			<div className="flex gap-1.5 shrink-0">
-																				<button
-																					onClick={() => handleProcessAnyway(t.hash)}
-																					disabled={pending.has(t.hash)}
-																					className="px-2 py-0.5 rounded text-[11px] border border-amber-600 text-amber-400 hover:bg-amber-600/20 cursor-pointer transition-all disabled:opacity-30">
-																					Process anyway
-																				</button>
+																				{!block.issues.some((i) => i.startsWith("unidentified:")) && (
+																					<button
+																						onClick={() => handleProcessAnyway(t.hash)}
+																						disabled={pending.has(t.hash)}
+																						className="px-2 py-0.5 rounded text-[11px] border border-amber-600 text-amber-400 hover:bg-amber-600/20 cursor-pointer transition-all disabled:opacity-30">
+																						Process anyway
+																					</button>
+																				)}
 																				<button
 																					onClick={() => handleDismissBlock(t.hash)}
 																					className="px-2 py-0.5 rounded text-[11px] border border-border text-slate-500 hover:text-slate-300 hover:border-slate-500 cursor-pointer transition-all">
