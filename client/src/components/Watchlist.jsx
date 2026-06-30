@@ -42,6 +42,7 @@ export default function Watchlist({
 	const { blockTitle } = useBlacklist({ onBlock, onToast });
 	const [search, setSearch] = useState("");
 	const [typeFilter, setTypeFilter] = useState("all");
+	const [hideTheaterOnly, setHideTheaterOnly] = useState(true);
 
 	if (loading)
 		return <div className="text-center py-12 text-slate-400">{t("loading_watchlist")}</div>;
@@ -57,7 +58,10 @@ export default function Watchlist({
 		(i) => !blockedTitles.has(i.title.toLowerCase()) && diskStatus(i, report) !== "complete",
 	);
 
+	const theaterCount = visibleItems.filter((i) => i.in_theaters).length;
+
 	const items = visibleItems.filter((item) => {
+		if (hideTheaterOnly && item.in_theaters) return false;
 		if (search && !item.title.toLowerCase().includes(search.toLowerCase())) return false;
 		if (typeFilter === "movie" && item.category.toUpperCase() !== "MOVIE") return false;
 		if (typeFilter === "tv" && item.category.toUpperCase() !== "TV") return false;
@@ -73,6 +77,9 @@ export default function Watchlist({
 				<StatCard label={t("wl_total")} value={visibleItems.length} />
 				<StatCard label={t("wl_movies")} value={movieCount} colorClass="text-indigo-400" />
 				<StatCard label={t("wl_series")} value={tvCount} colorClass="text-purple-400" />
+				{theaterCount > 0 && (
+					<StatCard label={t("stat_in_theaters")} value={theaterCount} colorClass="text-amber-400" />
+				)}
 			</div>
 
 			<div className="flex gap-2.5 mb-5 flex-wrap items-center">
@@ -101,6 +108,17 @@ export default function Watchlist({
 						</button>
 					))}
 				</div>
+				{theaterCount > 0 && (
+					<button
+						onClick={() => setHideTheaterOnly((v) => !v)}
+						className={`px-2.5 py-1.5 rounded-md text-[12px] border transition-colors cursor-pointer whitespace-nowrap ${
+							hideTheaterOnly
+								? "border-amber-700 text-amber-400 bg-amber-950/40"
+								: "border-border text-slate-400 hover:border-slate-500"
+						}`}>
+						{hideTheaterOnly ? `${t("filter_theaters_hidden")} (${theaterCount})` : t("filter_theaters_show")}
+					</button>
+				)}
 			</div>
 
 			{items.length === 0 ? (
@@ -179,6 +197,11 @@ function WatchlistCard({
 					{diskStatus === "incomplete" && missingItems.length === 0 && (
 						<span className="px-1.5 py-0.5 rounded border text-[10px] font-medium text-yellow-400 border-yellow-800 bg-yellow-950/40">
 							{t("badge_incomplete")}
+						</span>
+					)}
+					{item.in_theaters && (
+						<span className="px-1.5 py-0.5 rounded border text-[10px] font-medium text-amber-400 border-amber-800 bg-amber-950/40">
+							{t("badge_in_theaters")}
 						</span>
 					)}
 					{(() => {
