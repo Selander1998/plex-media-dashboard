@@ -105,6 +105,22 @@ def get_tv_season(tv_id: int, season_number: int, api_key: str | None, cache: di
 	return data
 
 
+def has_home_release(movie_id: int, api_key: str | None, cache: dict[str, Any]) -> bool:
+	"""Return True if the movie has any digital (4), physical (5), or TV (6) release in any country that is already past."""
+	data = tmdb_get(f"/movie/{movie_id}/release_dates", {}, api_key, cache)
+	if not data:
+		return True  # fail open — assume available if we can't check
+	today = date.today().isoformat()
+	HOME_TYPES = {4, 5, 6}
+	for country in data.get("results", []):
+		for rd in country.get("release_dates", []):
+			if rd.get("type") in HOME_TYPES:
+				rd_date = (rd.get("release_date") or "")[:10]
+				if rd_date and rd_date <= today:
+					return True
+	return False
+
+
 def get_all_tv_episodes_flat(tv_id: int, total_seasons: int, api_key: str | None, cache: dict[str, Any]) -> dict[int, dict[str, str]]:
 	"""Return {abs_ep_number: {"air_date": str, "name": str}} for all aired episodes."""
 	all_eps = {}

@@ -308,5 +308,9 @@
 	"lib_warnings_many": "{{n}} varningar",
 	"lib_rename_btn": "Byt namn",
 	"lib_delete_file": "Radera fil",
-	"toast_process_anyway": "Bearbetar torrent trots kvalitetsproblem"
+	"toast_process_anyway": "Bearbetar torrent trots kvalitetsproblem",
+	"stat_in_theaters": "Endast bio",
+	"badge_in_theaters": "På bio",
+	"filter_theaters_hidden": "Bio-exklusiva dolda",
+	"filter_theaters_show": "Visa bio-exklusiva"
 }

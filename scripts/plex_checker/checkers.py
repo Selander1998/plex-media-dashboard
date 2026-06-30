@@ -28,6 +28,7 @@ from .tmdb import (
 	tmdb_session,
 	search_movie,
 	get_movie_collection,
+	has_home_release,
 	search_tv,
 	get_tv_details,
 	get_tv_season,
@@ -154,12 +155,17 @@ def _check_movie_collection(
 			log_lines.append(f"  ~ MISSING (blacklisted): {part_title} ({part_year})  [{collection_name}]")
 		else:
 			log_lines.append(f"  ✗ MISSING: {part_title} ({part_year})  [{collection_name}]")
+			home = has_home_release(part_id, api_key, cache)
+			in_theaters = not home
+			if in_theaters:
+				log_lines[-1] += "  [cam only]"
 			missing.append({
 				"type": "movie",
 				"collection": collection_name,
 				"title": part_title,
 				"year": part_year,
 				"tmdb_id": part_id,
+				"in_theaters": in_theaters,
 			})
 	return col_key, missing, log_lines
 

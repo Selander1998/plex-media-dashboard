@@ -308,5 +308,9 @@
 	"lib_warnings_many": "{{n}} warnings",
 	"lib_rename_btn": "Rename",
 	"lib_delete_file": "Delete file",
-	"toast_process_anyway": "Processing torrent despite quality issues"
+	"toast_process_anyway": "Processing torrent despite quality issues",
+	"stat_in_theaters": "Theater-only",
+	"badge_in_theaters": "In theaters",
+	"filter_theaters_hidden": "Theater-only hidden",
+	"filter_theaters_show": "Show theater-only"
 }

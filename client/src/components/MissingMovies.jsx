@@ -17,18 +17,21 @@ export default function MissingMovies({
 }) {
 	const { t } = useLang();
 	const [search, setSearch] = useState("");
+	const [hideTheaterOnly, setHideTheaterOnly] = useState(true);
 
 	if (loading) return <div className="text-center py-12 text-slate-400">{t("loading_report")}</div>;
 	if (error) return <div className="bg-[#2d1a1a] border border-[#5c2626] rounded-lg p-4 text-red-500">{error}</div>;
 	if (!data) return null;
 
 	const visibleMissing = data.missing.filter((m) => !blockedTitles.has(m.title.toLowerCase()));
+	const theaterCount = visibleMissing.filter((m) => m.in_theaters).length;
 
 	const missing = visibleMissing.filter(
 		(m) =>
-			!search ||
-			m.title.toLowerCase().includes(search.toLowerCase()) ||
-			(m.collection || "").toLowerCase().includes(search.toLowerCase()),
+			(!hideTheaterOnly || !m.in_theaters) &&
+			(!search ||
+				m.title.toLowerCase().includes(search.toLowerCase()) ||
+				(m.collection || "").toLowerCase().includes(search.toLowerCase())),
 	);
 
 	const byCollection = missing.reduce((acc, m) => {
@@ -46,18 +49,34 @@ export default function MissingMovies({
 				{data.total != null && <StatCard label={t("stat_movies_on_disk")} value={data.total} colorClass="text-slate-200" />}
 				<StatCard label={t("stat_missing_movies")} value={visibleMissing.length} colorClass="text-red-500" />
 				<StatCard label={t("stat_affected_collections")} value={collections.length} />
+				{theaterCount > 0 && (
+					<StatCard label={t("stat_in_theaters")} value={theaterCount} colorClass="text-amber-400" />
+				)}
 				{data.unneeded_files?.length > 0 && (
 					<StatCard label={t("stat_unneeded_files")} value={data.unneeded_files.length} colorClass="text-yellow-500" />
 				)}
 			</div>
 
-			<input
-				type="text"
-				placeholder={t("search_movies")}
-				value={search}
-				onChange={(e) => setSearch(e.target.value)}
-				className="bg-surface border border-border rounded-md px-3 py-1.5 text-slate-200 text-[13px] w-full max-w-100 mb-5 outline-none focus:border-indigo-500 transition-colors"
-			/>
+			<div className="flex gap-3 items-center mb-5 flex-wrap">
+				<input
+					type="text"
+					placeholder={t("search_movies")}
+					value={search}
+					onChange={(e) => setSearch(e.target.value)}
+					className="bg-surface border border-border rounded-md px-3 py-1.5 text-slate-200 text-[13px] w-full max-w-100 outline-none focus:border-indigo-500 transition-colors"
+				/>
+				{theaterCount > 0 && (
+					<button
+						onClick={() => setHideTheaterOnly((v) => !v)}
+						className={`px-2.5 py-1.5 rounded-md text-[12px] border transition-colors cursor-pointer whitespace-nowrap ${
+							hideTheaterOnly
+								? "border-amber-700 text-amber-400 bg-amber-950/40"
+								: "border-border text-slate-400 hover:border-slate-500"
+						}`}>
+						{hideTheaterOnly ? `${t("filter_theaters_hidden")} (${theaterCount})` : t("filter_theaters_show")}
+					</button>
+				)}
+			</div>
 
 			{missing.length === 0 ? (
 				<div className="text-center py-12 text-slate-400">
@@ -121,6 +140,11 @@ function MovieRow({ movie, onBlacklist, matchedTorrents = [], isNew = false, onT
 				<span className="cursor-pointer">{movie.title}</span>{copied && <span className="ml-1.5 text-[11px]">✓</span>}
 			</span>
 			<div className="flex items-center gap-1.5 shrink-0">
+				{movie.in_theaters && (
+					<span className="px-1.5 py-0.5 rounded border text-[10px] font-medium text-amber-400 border-amber-800 bg-amber-950/40">
+						{t("badge_in_theaters")}
+					</span>
+				)}
 				{isNew && (
 					<span className="px-1.5 py-0.5 rounded border text-[10px] font-medium text-teal-400 border-teal-800 bg-teal-950/40">
 						{t("badge_new")}
