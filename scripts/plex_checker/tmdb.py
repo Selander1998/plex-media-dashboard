@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 import time
 import difflib
-from datetime import date
+from datetime import date, timedelta
 from typing import Any
 import requests
 from requests.adapters import HTTPAdapter
@@ -106,18 +106,34 @@ def get_tv_season(tv_id: int, season_number: int, api_key: str | None, cache: di
 
 
 def has_home_release(movie_id: int, api_key: str | None, cache: dict[str, Any]) -> bool:
-	"""Return True if the movie has any digital (4), physical (5), or TV (6) release in any country that is already past."""
+	"""Return True if the movie is available on home video.
+
+	Checks TMDB release_dates for digital (4), physical (5), or TV (6) releases.
+	Falls back to True (available) if the theatrical release was more than 180 days
+	ago, because TMDB release_dates data is often incomplete for older films.
+	"""
 	data = tmdb_get(f"/movie/{movie_id}/release_dates", {}, api_key, cache)
 	if not data:
-		return True  # fail open — assume available if we can't check
+		return True  # fail open
 	today = date.today().isoformat()
+	recent_cutoff = (date.today() - timedelta(days=180)).isoformat()
 	HOME_TYPES = {4, 5, 6}
+	THEATRICAL_TYPES = {2, 3}
+	earliest_theatrical: str | None = None
 	for country in data.get("results", []):
 		for rd in country.get("release_dates", []):
+			rd_date = (rd.get("release_date") or "")[:10]
+			if not rd_date or rd_date > today:
+				continue
 			if rd.get("type") in HOME_TYPES:
-				rd_date = (rd.get("release_date") or "")[:10]
-				if rd_date and rd_date <= today:
-					return True
+				return True
+			if rd.get("type") in THEATRICAL_TYPES:
+				if earliest_theatrical is None or rd_date < earliest_theatrical:
+					earliest_theatrical = rd_date
+	# If theatrical release is older than 6 months, assume home video exists
+	# (TMDB data for older films is often missing digital/physical entries)
+	if earliest_theatrical and earliest_theatrical <= recent_cutoff:
+		return True
 	return False
 
 
