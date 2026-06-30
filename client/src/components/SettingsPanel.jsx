@@ -22,6 +22,7 @@ export default function SettingsPanel({ settings, updateSetting, report, locale,
 	const [videoBitrate, setVideoBitrate] = useState(0);
 	const [audioBitrate, setAudioBitrate] = useState(0);
 	const [autoPause, setAutoPause] = useState(false);
+	const [autoMove, setAutoMove] = useState(true);
 
 	useEffect(() => {
 		fetch("/api/cache").then((r) => r.json()).then((d) => setCacheAge(d.ageDays ?? null)).catch(() => {});
@@ -67,6 +68,10 @@ export default function SettingsPanel({ settings, updateSetting, report, locale,
 			.then((r) => r.json())
 			.then((d) => setAutoPause(d.enabled))
 			.catch(() => {});
+		fetch("/api/qbit/auto-move")
+			.then((r) => r.json())
+			.then((d) => setAutoMove(d.enabled))
+			.catch(() => {});
 	}, []);
 
 	async function toggleAutoPause() {
@@ -74,6 +79,17 @@ export default function SettingsPanel({ settings, updateSetting, report, locale,
 		setAutoPause(next);
 		onToast(t(next ? "toast_auto_pause_on" : "toast_auto_pause_off"));
 		await fetch("/api/qbit/auto-pause", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ enabled: next }),
+		});
+	}
+
+	async function toggleAutoMove() {
+		const next = !autoMove;
+		setAutoMove(next);
+		onToast(t(next ? "toast_auto_move_on" : "toast_auto_move_off"));
+		await fetch("/api/qbit/auto-move", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({ enabled: next }),
@@ -276,6 +292,16 @@ export default function SettingsPanel({ settings, updateSetting, report, locale,
 			</div>
 
 			<div className="border-t border-border pt-3 flex flex-col gap-2">
+				<button
+					onClick={toggleAutoMove}
+					title={t("auto_move_title")}
+					className="flex items-center justify-between text-xs text-slate-400 hover:text-slate-200 cursor-pointer transition-colors"
+				>
+					<span>{t("auto_move_btn")}</span>
+					<span className={`w-7 h-4 rounded-full transition-colors flex items-center px-0.5 ${autoMove ? "bg-green-600" : "bg-slate-600"}`}>
+						<span className={`w-3 h-3 rounded-full bg-white transition-transform ${autoMove ? "translate-x-3" : "translate-x-0"}`} />
+					</span>
+				</button>
 				<button
 					onClick={toggleAutoPause}
 					title={t("auto_pause_title")}
