@@ -116,6 +116,16 @@ function AppContent() {
 
 	useEffect(() => { loadRenameData(); }, []);
 
+	const [qualityBlocks, setQualityBlocks] = useState([]);
+	useEffect(() => {
+		function fetchBlocks() {
+			fetch("/api/quality-blocks").then((r) => r.json()).then(setQualityBlocks).catch(() => {});
+		}
+		fetchBlocks();
+		const id = setInterval(fetchBlocks, 30_000);
+		return () => clearInterval(id);
+	}, []);
+
 	const { settings, updateSetting } = useSettings();
 	const { toasts, history: notifHistory, unread: notifUnread, pushToast, clearUnread: onNotifRead, clearHistory: onNotifClear } = useToasts();
 
@@ -213,6 +223,8 @@ function AppContent() {
 							onRefresh={fetchTorrents}
 							onToast={pushToast}
 							report={report}
+							qualityBlocks={qualityBlocks}
+							onQualityBlocksChange={setQualityBlocks}
 						/>
 					)}
 					{tab === "watchlist" && (

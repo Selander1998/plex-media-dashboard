@@ -307,5 +307,6 @@
 	"lib_warnings_one": "{{n}} varning",
 	"lib_warnings_many": "{{n}} varningar",
 	"lib_rename_btn": "Byt namn",
-	"lib_delete_file": "Radera fil"
+	"lib_delete_file": "Radera fil",
+	"toast_process_anyway": "Bearbetar torrent trots kvalitetsproblem"
 }

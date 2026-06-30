@@ -1,11 +1,10 @@
 import { Router } from "express";
-import { statfs, stat } from "fs/promises";
-import { TORRENT_SAVE_PATHS, TORRENT_TEMP_SUBDIR, SERVER_SETTINGS_PATH } from "../lib/config.js";
+import { statfs, stat, readFile, writeFile } from "fs/promises";
+import { TORRENT_SAVE_PATHS, TORRENT_TEMP_SUBDIR, SERVER_SETTINGS_PATH, QUALITY_BLOCKS_PATH } from "../lib/config.js";
 import { qbitFetch } from "../lib/qbit.js";
-import { processingTorrents, processTorrent, autoPauseSeeding, setAutoPause, autoMove, setAutoMove } from "../lib/torrent.js";
+import { processingTorrents, processTorrent, autoPauseSeeding, setAutoPause, autoMove, setAutoMove, removeQualityBlock } from "../lib/torrent.js";
 import { parseTorrentName, extractMagnetHash, extractMagnetName } from "../lib/media.js";
 import { activateUnlimited, cancelUnlimited, getUnlimitedState } from "../lib/unlimited.js";
-import { writeFile } from "fs/promises";
 
 const router = Router();
 
@@ -310,6 +309,41 @@ router.post("/api/qbit/auto-move", (req, res) => {
 	writeFile(SERVER_SETTINGS_PATH, JSON.stringify({ autoPauseSeeding, autoMove: enabled }, null, 2)).catch(() => {});
 	console.log(`[auto-move] ${enabled ? "enabled" : "disabled"}`);
 	res.json({ enabled });
+});
+
+router.get("/api/quality-blocks", async (req, res) => {
+	try {
+		const blocks = JSON.parse(await readFile(QUALITY_BLOCKS_PATH, "utf-8"));
+		res.json(blocks);
+	} catch {
+		res.json([]);
+	}
+});
+
+router.post("/api/quality-blocks/:hash/process", async (req, res) => {
+	const { hash } = req.params;
+	try {
+		const torrents = await qbitFetch("/api/v2/torrents/info").then((r) => r.json());
+		const torrent = torrents.find((t) => t.hash === hash);
+		if (!torrent) return res.status(404).json({ error: "Torrent not found in qBittorrent" });
+		await removeQualityBlock(hash);
+		processingTorrents.add(hash);
+		processTorrent(torrent, { force: true })
+			.catch((e) => console.error(`[process] force error for "${torrent.name}": ${e.message}`))
+			.finally(() => processingTorrents.delete(hash));
+		res.json({ ok: true });
+	} catch (err) {
+		res.status(500).json({ error: err.message });
+	}
+});
+
+router.delete("/api/quality-blocks/:hash", async (req, res) => {
+	try {
+		await removeQualityBlock(req.params.hash);
+		res.json({ ok: true });
+	} catch (err) {
+		res.status(500).json({ error: err.message });
+	}
 });
 
 export default router;

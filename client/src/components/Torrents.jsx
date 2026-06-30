@@ -289,7 +289,7 @@ function parseTorrentName(name) {
 	return { title: name, season: null, episode: null };
 }
 
-export default function Torrents({ torrents, transfer, loading, error, onRefresh, onToast, report }) {
+export default function Torrents({ torrents, transfer, loading, error, onRefresh, onToast, report, qualityBlocks = [], onQualityBlocksChange }) {
 	const { t: tr, locale } = useLang();
 
 	const [filter, setFilter] = useState(() => localStorage.getItem("torrent_filter") || "all");
@@ -338,6 +338,28 @@ export default function Torrents({ torrents, transfer, loading, error, onRefresh
 		{ value: "paused", label: tr("filter_paused") },
 		{ value: "error", label: tr("filter_error") },
 	];
+
+	const qualityBlockMap = useMemo(() => new Map(qualityBlocks.map((b) => [b.hash, b])), [qualityBlocks]);
+
+	async function handleProcessAnyway(hash) {
+		setPending((p) => new Set([...p, hash]));
+		try {
+			const res = await fetch(`/api/quality-blocks/${hash}/process`, { method: "POST" });
+			if (!res.ok) throw new Error();
+			onQualityBlocksChange?.((prev) => prev.filter((b) => b.hash !== hash));
+			onToast?.(tr("toast_process_anyway"));
+			setTimeout(onRefresh, 800);
+		} catch {
+			onToast?.(tr("action_failed"), true);
+		} finally {
+			setPending((p) => { const n = new Set(p); n.delete(hash); return n; });
+		}
+	}
+
+	async function handleDismissBlock(hash) {
+		await fetch(`/api/quality-blocks/${hash}`, { method: "DELETE" }).catch(() => {});
+		onQualityBlocksChange?.((prev) => prev.filter((b) => b.hash !== hash));
+	}
 
 async function handleAction(action, hash) {
 		setPending((p) => new Set([...p, hash]));
@@ -804,6 +826,34 @@ async function handleAction(action, hash) {
 																</div>
 															</td>
 														</tr>
+														{qualityBlockMap.has(t.hash) && (() => {
+															const block = qualityBlockMap.get(t.hash);
+															return (
+																<tr>
+																	<td colSpan={10} className="bg-red-950/30 border-b border-red-900/40 px-3 sm:px-4 py-2.5">
+																		<div className="flex flex-wrap items-start gap-2">
+																			<div className="flex-1 min-w-0">
+																				<span className="text-xs text-red-400 font-medium">Quality blocked: </span>
+																				<span className="text-xs text-red-300/80">{block.issues.join(", ")}</span>
+																			</div>
+																			<div className="flex gap-1.5 shrink-0">
+																				<button
+																					onClick={() => handleProcessAnyway(t.hash)}
+																					disabled={pending.has(t.hash)}
+																					className="px-2 py-0.5 rounded text-[11px] border border-amber-600 text-amber-400 hover:bg-amber-600/20 cursor-pointer transition-all disabled:opacity-30">
+																					Process anyway
+																				</button>
+																				<button
+																					onClick={() => handleDismissBlock(t.hash)}
+																					className="px-2 py-0.5 rounded text-[11px] border border-border text-slate-500 hover:text-slate-300 hover:border-slate-500 cursor-pointer transition-all">
+																					Dismiss
+																				</button>
+																			</div>
+																		</div>
+																	</td>
+																</tr>
+															);
+														})()}
 														{isExpanded && (
 															<tr>
 																<td

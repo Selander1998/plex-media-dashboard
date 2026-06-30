@@ -307,5 +307,6 @@
 	"lib_warnings_one": "{{n}} warning",
 	"lib_warnings_many": "{{n}} warnings",
 	"lib_rename_btn": "Rename",
-	"lib_delete_file": "Delete file"
+	"lib_delete_file": "Delete file",
+	"toast_process_anyway": "Processing torrent despite quality issues"
 }
