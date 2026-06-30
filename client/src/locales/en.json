@@ -284,6 +284,7 @@
 	"lib_rename_series": "Rename series ({{n}})",
 	"lib_rename_all": "Rename all ({{n}})",
 	"lib_renaming": "Renaming…",
+	"lib_no_plan": "No rename plan yet — run an update to scan the library",
 	"lib_already_named": "Library is already correctly named",
 	"lib_renames_applied": "{{ok}} rename{{s}} applied",
 	"lib_renames_for_show": "for {{show}}",

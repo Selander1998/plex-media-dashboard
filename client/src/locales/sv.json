@@ -284,6 +284,7 @@
 	"lib_rename_series": "Byt namn på serier ({{n}})",
 	"lib_rename_all": "Byt namn på allt ({{n}})",
 	"lib_renaming": "Byter namn…",
+	"lib_no_plan": "Ingen renameringsplan ännu — kör en uppdatering för att skanna biblioteket",
 	"lib_already_named": "Biblioteket är redan korrekt namngivet",
 	"lib_renames_applied": "{{ok}} namnbyte{{s}} gjort",
 	"lib_renames_for_show": "för {{show}}",

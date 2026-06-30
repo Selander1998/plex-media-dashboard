@@ -113,7 +113,7 @@ function TrashButton({ onClick, deleting }) {
 	);
 }
 
-export default function LibraryRename({ data, loading, onRefresh, onDataChange }) {
+export default function LibraryRename({ data, loading, onDataChange }) {
 	const { t } = useLang();
 	const [applying, setApplying] = useState(null);
 	const [result, setResult] = useState(null);
@@ -172,25 +172,27 @@ export default function LibraryRename({ data, loading, onRefresh, onDataChange }
 		? allShows.filter((s) => s.seasons.some((se) => se.episodes.some((e) => !e.title)))
 		: allShows;
 
+	if (!data) {
+		return (
+			<div className="text-center py-12 text-slate-500 text-sm">
+				{t("lib_no_plan")}
+			</div>
+		);
+	}
+
 	return (
 		<div className="flex flex-col gap-6">
-			<div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-				<StatCard label={t("lib_movie_folders")} value={stats?.movieFolders ?? "—"} />
-				<StatCard label={t("lib_movie_files")} value={stats?.movieFiles ?? "—"} />
-				<StatCard label={t("lib_season_folders")} value={stats?.seasonFolders ?? "—"} />
-				<StatCard label={t("lib_episode_files")} value={stats?.episodeFiles ?? "—"} />
-			</div>
+			{stats?.total > 0 && (
+				<div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+					<StatCard label={t("lib_movie_folders")} value={stats.movieFolders} />
+					<StatCard label={t("lib_movie_files")} value={stats.movieFiles} />
+					<StatCard label={t("lib_season_folders")} value={stats.seasonFolders} />
+					<StatCard label={t("lib_episode_files")} value={stats.episodeFiles} />
+				</div>
+			)}
 
 			{/* Controls */}
 			<div className="flex items-center gap-3 flex-wrap">
-				<button
-					onClick={onRefresh}
-					disabled={loading || applying !== null}
-					className="px-4 py-1.5 rounded-md border border-indigo-700 bg-indigo-500/15 text-indigo-300 text-sm font-medium hover:bg-indigo-500/25 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-				>
-					{loading ? t("lib_scanning") : data ? t("lib_rescan") : t("lib_scan")}
-				</button>
-
 				{movieChanges > 0 && (
 					<button
 						onClick={() => apply("movies")}
