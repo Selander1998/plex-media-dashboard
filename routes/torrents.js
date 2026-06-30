@@ -2,8 +2,9 @@ import { Router } from "express";
 import { statfs, stat } from "fs/promises";
 import { TORRENT_SAVE_PATHS, TORRENT_TEMP_SUBDIR, SERVER_SETTINGS_PATH } from "../lib/config.js";
 import { qbitFetch } from "../lib/qbit.js";
-import { processingTorrents, processTorrent, autoPauseSeeding, setAutoPause } from "../lib/torrent.js";
+import { processingTorrents, processTorrent, autoPauseSeeding, setAutoPause, autoMove, setAutoMove } from "../lib/torrent.js";
 import { parseTorrentName, extractMagnetHash, extractMagnetName } from "../lib/media.js";
+import { activateUnlimited, cancelUnlimited, getUnlimitedState } from "../lib/unlimited.js";
 import { writeFile } from "fs/promises";
 
 const router = Router();
@@ -62,6 +63,68 @@ router.post("/api/torrents/delete", async (req, res) => {
 		res.json({ ok: true });
 	} catch (err) {
 		res.status(500).json({ error: "Failed to delete torrent", detail: err.message });
+	}
+});
+
+router.get("/api/qbit/download-limit/unlimited", (req, res) => {
+	const s = getUnlimitedState("dl");
+	res.json(s ? { active: true, restoreLimit: s.restoreLimit, restoreAt: s.restoreAt } : { active: false });
+});
+
+router.post("/api/qbit/download-limit/unlimited", async (req, res) => {
+	const { minutes, restoreLimit } = req.body;
+	if (!minutes || typeof restoreLimit !== "number") return res.status(400).json({ error: "minutes and restoreLimit required" });
+	try {
+		await qbitFetch("/api/v2/transfer/setDownloadLimit", {
+			method: "POST",
+			headers: { "Content-Type": "application/x-www-form-urlencoded" },
+			body: new URLSearchParams({ limit: "0" }),
+		});
+		await activateUnlimited("dl", minutes, restoreLimit);
+		const s = getUnlimitedState("dl");
+		res.json({ active: true, restoreLimit: s.restoreLimit, restoreAt: s.restoreAt });
+	} catch (err) {
+		res.status(500).json({ error: err.message });
+	}
+});
+
+router.delete("/api/qbit/download-limit/unlimited", async (req, res) => {
+	try {
+		await cancelUnlimited("dl");
+		res.json({ active: false });
+	} catch (err) {
+		res.status(500).json({ error: err.message });
+	}
+});
+
+router.get("/api/qbit/upload-limit/unlimited", (req, res) => {
+	const s = getUnlimitedState("ul");
+	res.json(s ? { active: true, restoreLimit: s.restoreLimit, restoreAt: s.restoreAt } : { active: false });
+});
+
+router.post("/api/qbit/upload-limit/unlimited", async (req, res) => {
+	const { minutes, restoreLimit } = req.body;
+	if (!minutes || typeof restoreLimit !== "number") return res.status(400).json({ error: "minutes and restoreLimit required" });
+	try {
+		await qbitFetch("/api/v2/transfer/setUploadLimit", {
+			method: "POST",
+			headers: { "Content-Type": "application/x-www-form-urlencoded" },
+			body: new URLSearchParams({ limit: "0" }),
+		});
+		await activateUnlimited("ul", minutes, restoreLimit);
+		const s = getUnlimitedState("ul");
+		res.json({ active: true, restoreLimit: s.restoreLimit, restoreAt: s.restoreAt });
+	} catch (err) {
+		res.status(500).json({ error: err.message });
+	}
+});
+
+router.delete("/api/qbit/upload-limit/unlimited", async (req, res) => {
+	try {
+		await cancelUnlimited("ul");
+		res.json({ active: false });
+	} catch (err) {
+		res.status(500).json({ error: err.message });
 	}
 });
 
@@ -231,8 +294,21 @@ router.post("/api/qbit/auto-pause", (req, res) => {
 	const { enabled } = req.body;
 	if (typeof enabled !== "boolean") return res.status(400).json({ error: "enabled required" });
 	setAutoPause(enabled);
-	writeFile(SERVER_SETTINGS_PATH, JSON.stringify({ autoPauseSeeding: enabled }, null, 2)).catch(() => {});
+	writeFile(SERVER_SETTINGS_PATH, JSON.stringify({ autoPauseSeeding: enabled, autoMove }, null, 2)).catch(() => {});
 	console.log(`[auto-pause] ${enabled ? "enabled" : "disabled"}`);
+	res.json({ enabled });
+});
+
+router.get("/api/qbit/auto-move", (req, res) => {
+	res.json({ enabled: autoMove });
+});
+
+router.post("/api/qbit/auto-move", (req, res) => {
+	const { enabled } = req.body;
+	if (typeof enabled !== "boolean") return res.status(400).json({ error: "enabled required" });
+	setAutoMove(enabled);
+	writeFile(SERVER_SETTINGS_PATH, JSON.stringify({ autoPauseSeeding, autoMove: enabled }, null, 2)).catch(() => {});
+	console.log(`[auto-move] ${enabled ? "enabled" : "disabled"}`);
 	res.json({ enabled });
 });
 

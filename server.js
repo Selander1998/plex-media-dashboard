@@ -15,6 +15,7 @@ import updateRoutes from "./routes/update.js";
 import libraryRoutes from "./routes/library.js";
 import settingsRoutes from "./routes/settings.js";
 import { pollTorrents } from "./lib/torrent.js";
+import { initUnlimitedTimers } from "./lib/unlimited.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -48,6 +49,7 @@ app.get("*", (req, res) => {
 
 pollTorrents();
 setInterval(pollTorrents, 30_000);
+initUnlimitedTimers();
 
 app.listen(PORT, () => {
 	console.log(`Server running on http://localhost:${PORT}`);

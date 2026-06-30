@@ -101,6 +101,21 @@ function SpeedSlider({ label, limitBytes, endpoint, colorClass, accentClass, cur
 		}
 	}, [limitBytes]);
 
+	// Sync unlimited state from server on mount (survives page reload)
+	useEffect(() => {
+		fetch(`${endpoint}/unlimited`)
+			.then((r) => r.json())
+			.then((d) => {
+				if (d.active && d.restoreAt > Date.now()) {
+					savedKbps.current = Math.round(d.restoreLimit / 1024);
+					setKbps(0);
+					setUnlimitedUntil(d.restoreAt);
+					setRemaining(Math.ceil((d.restoreAt - Date.now()) / 1000));
+				}
+			})
+			.catch(() => {});
+	}, [endpoint]);
+
 	useEffect(() => {
 		if (!unlimitedUntil) return;
 		const id = setInterval(() => {
@@ -111,15 +126,11 @@ function SpeedSlider({ label, limitBytes, endpoint, colorClass, accentClass, cur
 				setRemaining(null);
 				const restore = savedKbps.current ?? 0;
 				setKbps(restore);
-				fetch(endpoint, {
-					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ limit: restore * 1024 }),
-				});
+				// Server already handled the restore — no API call needed here
 			}
 		}, 1000);
 		return () => clearInterval(id);
-	}, [unlimitedUntil, endpoint]);
+	}, [unlimitedUntil]);
 
 	function handleChange(e) {
 		setKbps(Number(e.target.value));
@@ -146,15 +157,16 @@ function SpeedSlider({ label, limitBytes, endpoint, colorClass, accentClass, cur
 		savedKbps.current = kbps;
 		setShowInput(false);
 		try {
-			const res = await fetch(endpoint, {
+			const res = await fetch(`${endpoint}/unlimited`, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ limit: 0 }),
+				body: JSON.stringify({ minutes, restoreLimit: kbps * 1024 }),
 			});
 			if (!res.ok) throw new Error();
+			const d = await res.json();
 			setKbps(0);
-			setUnlimitedUntil(Date.now() + minutes * 60 * 1000);
-			setRemaining(minutes * 60);
+			setUnlimitedUntil(d.restoreAt);
+			setRemaining(Math.ceil((d.restoreAt - Date.now()) / 1000));
 		} catch {
 			onToast?.(tr("action_failed"), true);
 		}
@@ -166,11 +178,7 @@ function SpeedSlider({ label, limitBytes, endpoint, colorClass, accentClass, cur
 		const restore = savedKbps.current ?? 0;
 		setKbps(restore);
 		try {
-			await fetch(endpoint, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ limit: restore * 1024 }),
-			});
+			await fetch(`${endpoint}/unlimited`, { method: "DELETE" });
 		} catch {
 			onToast?.(tr("action_failed"), true);
 		}
