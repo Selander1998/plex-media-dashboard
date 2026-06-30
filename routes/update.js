@@ -22,8 +22,6 @@ router.post("/api/update", (req, res) => {
 	let clientConnected = true;
 	req.on("close", () => {
 		clientConnected = false;
-		updateState.running = false;
-		updateState.child = null;
 	});
 	const send = (payload) => {
 		if (clientConnected) res.write(`data: ${JSON.stringify(payload)}\n\n`);
