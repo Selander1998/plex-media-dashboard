@@ -3,7 +3,7 @@ export function issueType(issue) {
 	return colon === -1 ? issue : issue.slice(0, colon);
 }
 
-const STRUCTURAL_TYPES = new Set(["corrupt_or_unreadable", "no_video_stream", "no_audio_stream", "bad_codec"]);
+const STRUCTURAL_TYPES = new Set(["corrupt_or_unreadable", "no_video_stream", "no_audio_stream", "bad_codec", "bad_audio_codec"]);
 
 function hasStructural(item) {
 	return item.issues.some((i) => STRUCTURAL_TYPES.has(issueType(i)));

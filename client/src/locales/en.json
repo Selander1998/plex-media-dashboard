@@ -15,6 +15,7 @@
 	"quality_issue_no_video": "No video stream",
 	"quality_issue_no_audio": "No audio stream",
 	"quality_issue_bad_codec": "Bad codec",
+	"quality_issue_bad_audio_codec": "Bad audio codec",
 	"quality_issue_low_res": "Low resolution",
 	"quality_issue_high_res": "High resolution",
 	"quality_issue_low_video_bitrate": "Low video bitrate",

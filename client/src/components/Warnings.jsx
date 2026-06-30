@@ -11,6 +11,7 @@ function structuralLabel(issue, t) {
 	if (type === "no_video_stream") return t("quality_issue_no_video");
 	if (type === "no_audio_stream") return t("quality_issue_no_audio");
 	if (type === "bad_codec") return `${t("quality_issue_bad_codec")}: ${issue.slice(10).toUpperCase()}`;
+	if (type === "bad_audio_codec") return `${t("quality_issue_bad_audio_codec")}: ${issue.slice(16).toUpperCase()}`;
 	return issue;
 }
 
@@ -22,7 +23,7 @@ function extractQualityWarnings(qualityData) {
 	]) {
 		for (const item of items) {
 			const corrupt = item.issues.filter((i) => STRUCTURAL_TYPES.has(issueType(i)));
-			const codec = item.issues.filter((i) => issueType(i) === "bad_codec");
+			const codec = item.issues.filter((i) => issueType(i) === "bad_codec" || issueType(i) === "bad_audio_codec");
 			if (corrupt.length) corruptList.push({ path: item.path, full_path: item.full_path, issues: corrupt });
 			if (codec.length) codecList.push({ path: item.path, full_path: item.full_path, issues: codec });
 		}

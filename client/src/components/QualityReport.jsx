@@ -29,6 +29,7 @@ function parseIssue(issue, t) {
 	if (issue === "no_video_stream") return { label: t("quality_issue_no_video"), color: "text-red-500" };
 	if (issue === "no_audio_stream") return { label: t("quality_issue_no_audio"), color: "text-amber-500" };
 	if (issue.startsWith("bad_codec:")) return { label: `${t("quality_issue_bad_codec")}: ${issue.slice(10).toUpperCase()}`, color: "text-amber-500" };
+	if (issue.startsWith("bad_audio_codec:")) return { label: `${t("quality_issue_bad_audio_codec")}: ${issue.slice(16).toUpperCase()}`, color: "text-amber-500" };
 	if (issue.startsWith("low_resolution:")) return { label: `${t("quality_issue_low_res")}: ${issue.slice(15)}`, color: "text-yellow-500" };
 	if (issue.startsWith("high_resolution:")) return { label: `${t("quality_issue_high_res")}: ${issue.slice(16)}`, color: "text-sky-400" };
 	if (issue.startsWith("low_video_bitrate:")) return { label: `${t("quality_issue_low_video_bitrate")}: ${issue.slice(18)}`, color: "text-yellow-500" };
