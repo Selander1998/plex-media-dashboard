@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useLang } from "../LangContext.jsx";
 import { translations, availableLangs, flagUrls } from "../translations.js";
 import { diskStatus } from "./Watchlist.jsx";
@@ -31,6 +31,111 @@ const TABS = [
 	{ id: "quality", key: "tab_quality" },
 	{ id: "library", key: "tab_library" },
 ];
+
+const VPN_KEYWORDS = ["vpn", "mullvad", "surfshark", "cyberghost", "torguard", "airvpn", "windscribe", "ivpn", "nordvpn", "expressvpn", "proton", "purevpn", "ipvanish", "hidemyass", "tefincom", "tesonet", "kape technologies", "private internet access", "datacamp", "m247"];
+
+const QUICK_LINKS = [
+	{ label: "The Pirate Bay", url: "https://thepiratebay.org" },
+	{ label: "Pirate Bay Proxy", url: "https://piratebayproxy.info/" },
+	{ label: "Torrent Galaxy", url: "https://torrentgalaxy-official.is/" },
+];
+
+function VpnIndicator() {
+	const [state, setState] = useState({ loading: true, vpn: null, org: "", ip: "" });
+	const [open, setOpen] = useState(false);
+	const ref = useRef(null);
+
+	const check = useCallback(async () => {
+		setState((s) => ({ ...s, loading: true }));
+		const ctrl = new AbortController();
+		const timer = setTimeout(() => ctrl.abort(), 8000);
+		try {
+			const d = await fetch("https://ipwho.is/", { signal: ctrl.signal }).then((r) => r.json());
+			const candidates = [d.isp, d.org, d.connection?.isp, d.connection?.org, d.connection?.domain]
+				.filter(Boolean).map((s) => s.toLowerCase());
+			const org = [d.connection?.isp, d.connection?.org, d.isp, d.org].filter(Boolean)[0] || "";
+			const vpn = candidates.some((c) => VPN_KEYWORDS.some((k) => c.includes(k)));
+			setState({ loading: false, vpn, org, ip: d.ip || "" });
+			return vpn;
+		} catch (err) {
+			setState((s) => ({ ...s, loading: false, vpn: null, org: `Error: ${err.message}` }));
+			return null;
+		} finally {
+			clearTimeout(timer);
+		}
+	}, []);
+
+	useEffect(() => {
+		check();
+		const id = setInterval(check, 5 * 60 * 1000);
+		return () => clearInterval(id);
+	}, [check]);
+
+	useEffect(() => {
+		if (!open) return;
+		function handler(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false); }
+		document.addEventListener("mousedown", handler);
+		return () => document.removeEventListener("mousedown", handler);
+	}, [open]);
+
+	const { vpn, org, ip, loading } = state;
+	const label = loading ? "VPN…" : vpn ? "VPN" : vpn === null ? "VPN?" : "No VPN";
+	const rawInfo = org ? `${org} · ${ip}` : ip;
+	const tooltip = loading
+		? "Checking VPN…"
+		: `${vpn ? "VPN active" : vpn === null ? "Check failed" : "No VPN detected"} — ${rawInfo}`;
+
+	async function handleClick() {
+		if (open) { setOpen(false); return; }
+		const active = await check();
+		if (active === true) setOpen(true);
+	}
+
+	return (
+		<div ref={ref} className="relative flex items-center">
+			<button
+				onClick={handleClick}
+				title={vpn ? "Click to open sites" : tooltip}
+				className={`flex items-center gap-1 text-[11px] cursor-pointer transition-colors ${
+					loading ? "text-slate-500"
+					: vpn ? "text-green-400 hover:text-green-300"
+					: vpn === null ? "text-slate-500 hover:text-slate-300"
+					: "text-amber-400 hover:text-amber-300"
+				}`}>
+				<span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+					loading ? "bg-slate-500 animate-pulse"
+					: vpn ? "bg-green-400"
+					: vpn === null ? "bg-slate-500"
+					: "bg-amber-400"
+				}`} />
+				<span className="hidden sm:inline">{label}</span>
+			</button>
+
+			{open && (
+				<div className="absolute right-0 top-full mt-2 w-52 bg-surface border border-border rounded-lg shadow-xl z-50 overflow-hidden">
+					<div className="px-3 py-2 border-b border-border flex items-center justify-between">
+						<span className="text-[11px] text-slate-400">{org || ip}</span>
+						<button onClick={check} className="text-[10px] text-slate-500 hover:text-slate-300 cursor-pointer transition-colors">Recheck</button>
+					</div>
+					{QUICK_LINKS.map((link) => (
+						<a
+							key={link.url}
+							href={link.url}
+							onClick={(e) => e.preventDefault()}
+							className="flex items-center justify-between px-3 py-2 text-[13px] text-slate-300 hover:bg-surface2 hover:text-slate-100 transition-colors border-b border-border/50 last:border-0 select-none">
+							{link.label}
+							<svg className="w-3 h-3 text-slate-600" viewBox="0 0 20 20" fill="currentColor">
+								<path d="M11 3a1 1 0 100 2h2.586l-6.293 6.293a1 1 0 101.414 1.414L15 6.414V9a1 1 0 102 0V4a1 1 0 00-1-1h-5z" />
+								<path d="M5 5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-3a1 1 0 10-2 0v3H5V7h3a1 1 0 000-2H5z" />
+							</svg>
+						</a>
+					))}
+					<div className="px-3 py-1.5 text-[10px] text-slate-600">Right-click → Open in Private Window</div>
+				</div>
+			)}
+		</div>
+	);
+}
 
 export default function Header({
 	report,
@@ -263,6 +368,9 @@ const totalSize = (report?.movies?.total_size ?? 0) + (report?.series?.total_siz
 							</span>
 						);
 					})()}
+
+					{/* VPN indicator */}
+					<VpnIndicator />
 
 					{/* Clock */}
 					<span className="hidden sm:inline text-xs text-slate-400 tabular-nums">
